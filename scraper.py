@@ -189,11 +189,18 @@ def official_article_urls(page):
                 continue
             empty_pages = 0
             for i in range(count):
-                href = links.nth(i).get_attribute("href")
+                link = links.nth(i)
+                href = link.get_attribute("href")
+                title = link.inner_text().strip()
                 if href and "/news/detail/" in href:
                     if href.startswith("/"):
                         href = "https://www.svleague.jp" + href
-                    urls.add(href.split("#")[0])
+                    clean = href.split("#")[0]
+                    # Only open likely broadcast/media articles. Known broadcast
+                    # articles are always retained even if their title changes.
+                    keywords = ("放送", "テレビ", "NHK", "J SPORTS", "GAORA", "フジテレビ", "CS", "BS", "地上波", "メディア")
+                    if clean in urls or any(k in title for k in keywords):
+                        urls.add(clean)
         except Exception as e:
             print("OFFICIAL INDEX ERROR:", url, e)
     return sorted(urls)
