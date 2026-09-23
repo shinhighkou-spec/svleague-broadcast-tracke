@@ -431,7 +431,7 @@ a{color:inherit}
 .day-head{padding:13px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
 .day-head:before{content:"";width:4px;height:24px;background:var(--gold);border-radius:4px}
 .day-date{font-size:20px;font-weight:900;letter-spacing:.02em}.day-week{color:var(--muted);font-size:13px}
-.grid-head,.broadcast-row{display:grid;grid-template-columns:1.25fr 1fr 2fr 2fr;align-items:center}
+.grid-head,.broadcast-row{display:grid;grid-template-columns:1.15fr 1fr 1.9fr 1.9fr .8fr;align-items:center}
 .grid-head{background:rgba(255,255,255,.025);color:#80919e;font-size:11px;letter-spacing:.08em;padding:9px 18px}
 .broadcast-row{min-height:66px;padding:9px 18px;border-top:1px solid var(--line);font-size:14px}
 .broadcast-row:first-child{border-top:0}
@@ -439,6 +439,7 @@ a{color:inherit}
 .team{font-weight:750}.team.highlight{background:var(--blue);color:#06121a;padding:7px 10px;border-radius:8px;width:max-content;max-width:100%}
 .away{display:flex;align-items:center;gap:12px}.home{display:flex;align-items:center}
 .vs{color:#71818d;font-size:11px;margin:0 8px}
+.record-cell{display:flex;align-items:center;justify-content:center}.record-check{appearance:none;width:24px;height:24px;border:2px solid #71818d;border-radius:7px;background:#071018;cursor:pointer;position:relative;transition:.18s;box-shadow:0 4px 12px rgba(0,0,0,.18)}.record-check:hover{border-color:var(--gold2);transform:scale(1.05)}.record-check:checked{background:var(--gold);border-color:var(--gold2)}.record-check:checked:after{content:"✓";position:absolute;left:4px;top:-2px;color:#111;font-size:20px;font-weight:900}.record-label{font-size:11px;color:var(--muted);margin-left:7px}.broadcast-row.reserved{background:linear-gradient(90deg,rgba(214,173,69,.06),transparent 65%)}
 .empty{padding:48px;text-align:center;color:var(--muted)}
 .footer{border-top:1px solid var(--line);padding:24px 0 38px;color:#71818d;font-size:11px;line-height:1.7}
 .footer strong{color:#aeb9c0}
@@ -506,7 +507,10 @@ function apply(){
  count.textContent=n+'件';
 }
 buttons.forEach(b=>b.addEventListener('click',()=>{buttons.forEach(x=>x.classList.remove('active'));b.classList.add('active');apply()}));
-dateFilter.addEventListener('change',apply); apply();
+const STORAGE_KEY='svleague-recording-reservations-v1';
+function rowKey(row){ const cells=row.querySelectorAll(':scope > div'); return [row.dataset.station,cells[1]?.textContent.trim(),cells[2]?.textContent.trim(),cells[3]?.textContent.trim()].join('|'); }
+function loadReservations(){ document.querySelectorAll('.broadcast-row').forEach(row=>{ const box=row.querySelector('.record-check'); if(!box)return; const saved=localStorage.getItem(STORAGE_KEY+'|'+rowKey(row))==='1'; box.checked=saved; row.classList.toggle('reserved',saved); box.addEventListener('change',()=>{ const key=STORAGE_KEY+'|'+rowKey(row); if(box.checked){localStorage.setItem(key,'1');row.classList.add('reserved')} else{localStorage.removeItem(key);row.classList.remove('reserved')} }); }); }
+dateFilter.addEventListener('change',apply); loadReservations(); apply();
 </script>
 </body></html>"""
 
@@ -536,12 +540,13 @@ dateFilter.addEventListener('change',apply); apply();
                 f'<div class="row-date">{r.broadcast_date.replace("-", "/")}</div>'
                 f'<div class="home"><span class="team {hcls}">{esc(r.home)}</span></div>'
                 f'<div class="away"><span class="team {acls}">{esc(r.away)}</span></div>'
+                f'<div class="record-cell"><label><input class="record-check" type="checkbox" aria-label="録画予約"><span class="record-label">予約</span></label></div>'
                 f'</div>'
             )
         day_blocks.append(
             f'<div class="day-card" data-date="{d}">'
             f'<div class="day-head"><span class="day-date">{d[5:].replace("-", ".")}</span><span class="day-week">（{weekday}）</span></div>'
-            f'<div class="grid-head"><div>放送局</div><div>放送日</div><div>ホームチーム</div><div>アウェイチーム</div></div>'
+            f'<div class="grid-head"><div>放送局</div><div>放送日</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
             f'{"".join(body)}</div>'
         )
 
