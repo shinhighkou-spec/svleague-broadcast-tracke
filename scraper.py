@@ -238,7 +238,8 @@ def known_facts():
         Broadcast("GAORA SPORTS","2026-11-07","大阪マーヴェラス","SAGA久光スプリングス",src,"13:05"),
         Broadcast("GAORA SPORTS","2026-11-08","大阪マーヴェラス","SAGA久光スプリングス",src,"13:05"),
         Broadcast("GAORA SPORTS","2026-11-14","ヴィクトリーナ姫路","東レアローズ滋賀",src,"14:05"),
-        Broadcast("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス",src,""),
+        Broadcast("NHK BS","2026-10-23","デンソーエアリービーズ","SAGA久光スプリングス",src,"19:05"),
+        Broadcast("NHK BS","2026-11-01","大阪ブルテオン","ウルフドッグス名古屋",src,"15:05"),
     ]
 
 def reconcile(rows):
@@ -246,6 +247,7 @@ def reconcile(rows):
     # reconciliation facts. Deduplicate on all four visible columns.
     banned = {
         ("フジテレビNEXT","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
+        ("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
         ("GAORA SPORTS","2026-09-18","試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング2026","2"),
         ("GAORA SPORTS","2026-10-31","東レアローズ滋賀","デンソーエアリービーズ"),
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
