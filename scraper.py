@@ -11,7 +11,11 @@ SITE = ROOT / "site"
 DATA.mkdir(exist_ok=True)
 SITE.mkdir(exist_ok=True)
 
-OFFICIAL_NEWS = "https://www.svleague.jp/news/detail/100414/?grade=sv"
+OFFICIAL_NEWS_INDEX = "https://www.svleague.jp/news/sv/"
+OFFICIAL_NEWS_URLS = [
+    "https://www.svleague.jp/news/detail/100302/?grade=sv",
+    "https://www.svleague.jp/news/detail/100414/?grade=sv",
+]
 GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
 
@@ -165,203 +169,94 @@ def add(rows, station, d, match, source, t=""):
         return
     rows.append(Broadcast(station, d, match[0], match[1], source, t))
 
-def scrape_official(page, rows):
-    page.goto(OFFICIAL_NEWS, wait_until="networkidle", timeout=60000)
-    page.wait_for_timeout(1000)
+def official_article_urls(page):
+    """Discover official SV.LEAGUE news articles from the official news index.
+    Also keep explicitly known broadcast articles so pagination/cache changes
+    cannot hide them."""
+    urls = set(OFFICIAL_NEWS_URLS)
+    empty_pages = 0
+    for n in range(1, 11):
+        url = OFFICIAL_NEWS_INDEX if n == 1 else f"{OFFICIAL_NEWS_INDEX}?page={n}"
+        try:
+            page.goto(url, wait_until="networkidle", timeout=60000)
+            page.wait_for_timeout(500)
+            links = page.locator('a[href*="/news/detail/"]')
+            count = links.count()
+            if count == 0:
+                empty_pages += 1
+                if empty_pages >= 2:
+                    break
+                continue
+            empty_pages = 0
+            for i in range(count):
+                href = links.nth(i).get_attribute("href")
+                if href and "/news/detail/" in href:
+                    if href.startswith("/"):
+                        href = "https://www.svleague.jp" + href
+                    urls.add(href.split("#")[0])
+        except Exception as e:
+            print("OFFICIAL INDEX ERROR:", url, e)
+    return sorted(urls)
+
+def scrape_official_article(page, rows, url):
+    page.goto(url, wait_until="networkidle", timeout=60000)
+    page.wait_for_timeout(700)
     body = page.locator("body").inner_text(timeout=10000)
     if not body.strip():
-        raise RuntimeError("SV.LEAGUE official announcement page returned empty text")
+        raise RuntimeError(f"official article returned empty text: {url}")
 
-    # IMPORTANT: never parse a large body-text window. The previous implementation
-    # mixed publication dates, neighboring rows and navigation text. Only a single
-    # HTML table row may become a record, and it must contain one station + one date
-    # + exactly two known teams.
-    rows_locator = page.locator("table tr")
-    for i in range(rows_locator.count()):
+    # Broadcast tables use the station name as a heading above each table.
+    # Never use the article publication date as a broadcast date.
+    tables = page.locator("table")
+    for i in range(tables.count()):
+        table = tables.nth(i)
         try:
-            cells = rows_locator.nth(i).locator("th,td")
-            cell_texts = cells.all_inner_texts()
-            row_text = " ".join(cell_texts)
-        except Exception:
-            continue
-        item = extract_broadcast_item(row_text)
-        if item:
-            station, d, match, tm = item
-            add(rows, station, d, match, OFFICIAL_NEWS, tm)
+            row_locator = table.locator("tr")
+            if row_locator.count() == 0:
+                continue
+            # Walk backwards through headings in DOM order. This is much safer
+            # than taking arbitrary page text as the broadcaster.
+            station = None
+            try:
+                headings = table.locator("xpath=preceding::h1 | preceding::h2 | preceding::h3 | preceding::h4")
+                for j in range(headings.count() - 1, -1, -1):
+                    txt = clean_station(headings.nth(j).inner_text())
+                    if txt in VALID_STATIONS:
+                        station = txt
+                        break
+            except Exception:
+                station = None
 
-def scrape_gaora(page, rows):
-    # GAORA pages are supplemental. They can never overwrite official facts.
-    page.goto(GAORA, wait_until="networkidle", timeout=60000)
-    page.wait_for_timeout(1200)
+            if not station:
+                continue
 
-    cards = page.locator("text=ガオバレ！SVリーグ 2026-27")
-    for i in range(cards.count()):
-        el = cards.nth(i)
-        try:
-            block = el.locator("xpath=..").inner_text(timeout=3000)
-        except Exception:
-            continue
-        item = extract_broadcast_item(block, "GAORA SPORTS")
-        if item:
-            station, d, match, tm = item
-            add(rows, station, d, match, GAORA, tm)
-
-    # Weekly pages are intentionally parsed in small blocks only.
-    for ymd in ["20261016","20261017","20261021","20261023","20261030","20261106","20261113"]:
-        url = GAORA_WEEKLY.format(ymd=ymd)
-        try:
-            page.goto(url, wait_until="networkidle", timeout=45000)
-            cards = page.locator("text=ガオバレ！SVリーグ 2026-27")
-            for i in range(cards.count()):
-                block = cards.nth(i).locator("xpath=..").inner_text(timeout=3000)
-                item = extract_broadcast_item(block, "GAORA SPORTS")
+            for j in range(row_locator.count()):
+                try:
+                    row_text = " ".join(row_locator.nth(j).locator("th,td").all_inner_texts())
+                except Exception:
+                    continue
+                item = extract_broadcast_item(row_text, station)
                 if item:
-                    station, d, match, tm = item
+                    _, d, match, tm = item
                     add(rows, station, d, match, url, tm)
-        except Exception:
-            continue
-
-def known_facts():
-    # Confirmed facts supplied from the official SV.LEAGUE/Fuji table and
-    # GAORA schedule. These are reconciliation invariants, not scraped guesses.
-    src = "known-official-fixture"
-    return [
-        Broadcast("フジテレビNEXT","2026-10-24","北海道イエロースターズ","大阪ブルテオン",src,"14:05"),
-        Broadcast("フジテレビNEXT","2026-10-25","北海道イエロースターズ","大阪ブルテオン",src,"13:05"),
-        Broadcast("フジテレビNEXT","2026-10-31","大阪ブルテオン","ウルフドッグス名古屋",src,"12:05"),
-        Broadcast("フジテレビNEXT","2026-11-01","大阪ブルテオン","ウルフドッグス名古屋",src,"15:05"),
-        Broadcast("GAORA SPORTS","2026-10-17","大阪マーヴェラス","岡山シーガルズ",src,"14:05"),
-        Broadcast("GAORA SPORTS","2026-10-18","大阪マーヴェラス","岡山シーガルズ",src,"13:05"),
-        Broadcast("GAORA SPORTS","2026-10-24","ヴィクトリーナ姫路","PFUブルーキャッツ石川かほく",src,"12:05"),
-        Broadcast("GAORA SPORTS","2026-10-25","ヴィクトリーナ姫路","PFUブルーキャッツ石川かほく",src,"12:05"),
-        Broadcast("GAORA SPORTS","2026-11-01","東レアローズ滋賀","デンソーエアリービーズ",src,"13:05"),
-        Broadcast("GAORA SPORTS","2026-11-07","大阪マーヴェラス","SAGA久光スプリングス",src,"13:05"),
-        Broadcast("GAORA SPORTS","2026-11-08","大阪マーヴェラス","SAGA久光スプリングス",src,"13:05"),
-        Broadcast("GAORA SPORTS","2026-11-14","ヴィクトリーナ姫路","東レアローズ滋賀",src,"14:05"),
-        Broadcast("NHK BS","2026-10-23","デンソーエアリービーズ","SAGA久光スプリングス",src,"19:05"),
-        Broadcast("NHK BS","2026-11-01","大阪ブルテオン","ウルフドッグス名古屋",src,"15:05"),
-    ]
-
-def reconcile(rows):
-    # Remove rows previously known to be wrong, then apply authoritative
-    # reconciliation facts. Deduplicate on all four visible columns.
-    banned = {
-        ("フジテレビNEXT","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
-        ("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
-        ("GAORA SPORTS","2026-09-18","試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング2026","2"),
-        ("GAORA SPORTS","2026-10-31","東レアローズ滋賀","デンソーエアリービーズ"),
-        ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
-    }
-    out = {}
-    for r in rows:
-        key = (r.station, r.broadcast_date, r.home, r.away)
-        if key in banned:
-            continue
-        out[key] = r
-    for r in known_facts():
-        out[(r.station, r.broadcast_date, r.home, r.away)] = r
-    return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
-
-def validate(rows, official_ok):
-    if not official_ok:
-        return False, "SV.LEAGUE official source could not be safely fetched."
-    if len(rows) < len(known_facts()):
-        return False, f"Abnormally small result set: {len(rows)} rows."
-    keys = [(r.station,r.broadcast_date,r.home,r.away) for r in rows]
-    if len(keys) != len(set(keys)):
-        return False, "Duplicate keys detected."
-    for r in rows:
-        if not all([r.station, r.broadcast_date, r.home, r.away]):
-            return False, f"Malformed row: {r}"
-        if r.station not in VALID_STATIONS:
-            return False, f"Invalid station: {r.station}"
-        if not valid_season_date(r.broadcast_date):
-            return False, f"Out-of-season date: {r.broadcast_date}"
-        if r.home == r.away:
-            return False, f"Same-team matchup: {r}"
-        if len(r.home) > 40 or len(r.away) > 40:
-            return False, f"Suspicious team text: {r}"
-    return True, "ok"
-
-def load_previous():
-    p = DATA / "broadcasts.json"
-    if not p.exists():
-        return []
-    try:
-        return [Broadcast(**x) for x in json.loads(p.read_text(encoding="utf-8"))]
-    except Exception:
-        return []
-
-def write_outputs(rows):
-    (DATA / "broadcasts.json").write_text(
-        json.dumps([asdict(r) for r in rows], ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    with (DATA / "broadcasts.csv").open("w", newline="", encoding="utf-8-sig") as f:
-        w = csv.writer(f)
-        w.writerow(["放送局","放送日","ホームチーム","アウェイチーム"])
-        for r in rows:
-            w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away])
-
-    html = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SVリーグ 放送予定</title>
-<style>
-body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f7f9;color:#111}
-main{max-width:1000px;margin:auto;padding:24px}
-h1{font-size:24px}
-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}
-th,td{padding:12px;border-bottom:1px solid #ddd;text-align:left}
-th{background:#eee}
-td.date{background:#fff5a8}
-td.toray,td.osaka{background:#87C6FF}
-@media(max-width:650px){th,td{padding:9px 6px;font-size:13px}}
-</style></head><body><main>
-<h1>SVリーグ 放送予定</h1>
-<p>2026-27シーズン／最終更新: __UPDATED__</p>
-<table><thead><tr><th>放送局</th><th>放送日</th><th>ホームチーム</th><th>アウェイチーム</th></tr></thead>
-<tbody>__ROWS__</tbody></table></main></body></html>"""
-    trs = []
-    for r in rows:
-        hcls = "toray" if r.home == "東レアローズ滋賀" else ("osaka" if r.home == "大阪ブルテオン" else "")
-        acls = "toray" if r.away == "東レアローズ滋賀" else ("osaka" if r.away == "大阪ブルテオン" else "")
-        trs.append(
-            f'<tr><td>{r.station}</td><td class="date">{r.broadcast_date.replace("-","/")}</td>'
-            f'<td class="{hcls}">{r.home}</td><td class="{acls}">{r.away}</td></tr>'
-        )
-    html = html.replace("__ROWS__", "".join(trs)).replace(
-        "__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")
-    )
-    (SITE / "index.html").write_text(html, encoding="utf-8")
-
-def main():
-    rows = []
-    official_ok = False
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page(locale="ja-JP")
-        try:
-            scrape_official(page, rows)
-            official_ok = True
         except Exception as e:
-            print("OFFICIAL ERROR:", e)
+            print("OFFICIAL TABLE ERROR:", url, e)
+
+def scrape_official(page, rows):
+    urls = official_article_urls(page)
+    if not urls:
+        raise RuntimeError("SV.LEAGUE official news index returned no article URLs")
+
+    parsed_articles = 0
+    for url in urls:
         try:
-            scrape_gaora(page, rows)
+            before = len(rows)
+            scrape_official_article(page, rows, url)
+            if len(rows) > before:
+                parsed_articles += 1
         except Exception as e:
-            print("GAORA ERROR:", e)
-        browser.close()
+            print("OFFICIAL ARTICLE ERROR:", url, e)
 
-    rows = reconcile(rows)
-    ok, msg = validate(rows, official_ok)
-    if not ok:
-        print("VALIDATION FAILED:", msg)
-        prev = load_previous()
-        if prev:
-            write_outputs(prev)
-        raise SystemExit(2)
+    if parsed_articles == 0:
+        raise RuntimeError("No broadcast records could be safely parsed from official SV.LEAGUE news articles")
 
-    write_outputs(rows)
-    print(f"OK: {len(rows)} rows")
-
-if __name__ == "__main__":
-    main()
