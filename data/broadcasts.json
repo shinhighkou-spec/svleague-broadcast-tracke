@@ -1,1 +1,186 @@
-[]
+[
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-09-18",
+    "home": "試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング2026",
+    "away": "2",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "19:05"
+  },
+  {
+    "station": "NHK BS",
+    "broadcast_date": "2026-09-18",
+    "home": "PFUブルーキャッツ石川かほく",
+    "away": "SAGA久光スプリングス",
+    "source": "known-official-fixture",
+    "broadcast_time": ""
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-09-18",
+    "home": "MEN",
+    "away": "Vコレ-MEN-コーポレートサイト配信ログインJPNewsニュース公式すべてお知らせ試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "19:05"
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-09-18",
+    "home": "式すべてお知らせ試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング2026",
+    "away": "2",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "19:05"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-09-22",
+    "home": "グス名古屋フジテレビONE/TWO/NEXTMEN開催日試合開始対戦カード放送チャンネル10月24日（土）14:05北海道イエロースターズ",
+    "away": "大阪ブルテオンフジテレビNEXT10月25日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-09-22",
+    "home": "テレビNEXT10月31日（土）12:05大阪ブルテオン",
+    "away": "ウルフドッグス名古屋フジテレビNEXT11月1日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-09-22",
+    "home": "sPFUブルーキャッツ石川かほく10月25日（日）12:05ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく11月1日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-09-22",
+    "home": "vsウルフドッグス名古屋フジテレビNEXTGAORASPORTSWOMEN開催日試合開始対戦カード10月17日（土）14:05大阪マーヴェラス",
+    "away": "岡山シーガルズ10月18日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-09-22",
+    "home": "ンフジテレビNEXT10月25日（日）13:05北海道イエロースターズ",
+    "away": "大阪ブルテオンフジテレビNEXT10月31日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-09-22",
+    "home": "対戦カード10月17日（土）14:05大阪マーヴェラス",
+    "away": "岡山シーガルズ10月18日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-09-22",
+    "home": "3:05大阪マーヴェラス",
+    "away": "岡山シーガルズ10月24日",
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "03:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-17",
+    "home": "大阪マーヴェラス",
+    "away": "岡山シーガルズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-18",
+    "home": "大阪マーヴェラス",
+    "away": "岡山シーガルズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-24",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "known-official-fixture",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-10-24",
+    "home": "北海道イエロースターズ",
+    "away": "大阪ブルテオン",
+    "source": "known-official-fixture",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-25",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "known-official-fixture",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-10-25",
+    "home": "北海道イエロースターズ",
+    "away": "大阪ブルテオン",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-10-31",
+    "home": "大阪ブルテオン",
+    "away": "ウルフドッグス名古屋",
+    "source": "known-official-fixture",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-01",
+    "home": "東レアローズ滋賀",
+    "away": "デンソーエアリービーズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "フジテレビNEXT",
+    "broadcast_date": "2026-11-01",
+    "home": "大阪ブルテオン",
+    "away": "ウルフドッグス名古屋",
+    "source": "known-official-fixture",
+    "broadcast_time": "15:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-07",
+    "home": "大阪マーヴェラス",
+    "away": "SAGA久光スプリングス",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-08",
+    "home": "大阪マーヴェラス",
+    "away": "SAGA久光スプリングス",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-14",
+    "home": "ヴィクトリーナ姫路",
+    "away": "東レアローズ滋賀",
+    "source": "known-official-fixture",
+    "broadcast_time": "14:05"
+  }
+]
