@@ -150,7 +150,12 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     text = re.sub(r"\s+", " ", text).strip()
     stations = [s for s in VALID_STATIONS if s in text]
     if station_hint:
-        stations.append(clean_station(station_hint))
+        hint = clean_station(station_hint)
+        # Some official SV.LEAGUE tables use a combined heading such as
+        # "J SPORTS 1/2/3/4". In that case the actual channel is written
+        # in each row, so do not inject the combined heading as a station.
+        if hint in VALID_STATIONS:
+            stations.append(hint)
     stations = list(dict.fromkeys(stations))
     if len(stations) != 1:
         return None
