@@ -67,9 +67,12 @@ TEAM_MAP = {
     "埼玉上尾": "埼玉上尾メディックス",
     "埼玉上尾メディックス": "埼玉上尾メディックス",
     "A山形": "アランマーレ山形",
-    "アランマーレ山形": "アランマーレ山形",
+    "アランマーレ山形": "アランマーレ秋田庄内",
+    "アランマーレ秋田庄内": "アランマーレ秋田庄内",
     "KUROBE": "ＫＵＲＯＢＥアクアフェアリーズ",
-    "ＫＵＲＯＢＥアクアフェアリーズ": "ＫＵＲＯＢＥアクアフェアリーズ",
+    "ＫＵＲＯＢＥアクアフェアリーズ": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "ＫＵＲＯＢＥアクアフェアリーズ富山": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "KUROBEアクアフェアリーズ富山": "ＫＵＲＯＢＥアクアフェアリーズ富山",
     "Astemo": "Astemoリヴァーレ茨城",
     "Astemoリヴァーレ茨城": "Astemoリヴァーレ茨城",
     "群馬": "群馬グリーンウイングス",
@@ -271,6 +274,25 @@ def scrape_official(page, rows):
 
     if parsed_articles == 0:
         raise RuntimeError("No broadcast records could be safely parsed from official SV.LEAGUE news articles")
+def scrape_jcom(page, rows):
+    """Supplemental TV/CS source. Only accept an explicit J SPORTS channel
+    together with broadcast date, time, and both teams in one small DOM block.
+    J SPORTS on-demand-only entries are intentionally ignored."""
+    url = "https://www2.myjcom.jp/special/tv/sports/volleyball/svleague/schedule.php"
+    page.goto(url, wait_until="networkidle", timeout=60000)
+    page.wait_for_timeout(1500)
+    labels = page.locator("text=/J SPORTS [1-4] HD/")
+    for i in range(labels.count()):
+        try:
+            el = labels.nth(i)
+            block = el.locator("xpath=ancestor::*[self::div or self::li or self::article][1]").inner_text(timeout=3000)
+        except Exception:
+            continue
+        item = extract_broadcast_item(block)
+        if item:
+            station, d, match, tm = item
+            add(rows, station, d, match, url, tm)
+
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
     page.goto(GAORA, wait_until="networkidle", timeout=60000)
@@ -377,7 +399,36 @@ def load_previous():
     except Exception:
         return []
 
-def write_outputs(rows):
+def scrape_team_logos(page):
+    """Harvest current team logo image URLs from SV.LEAGUE official team pages."""
+    logos = {}
+    for url in (
+        "https://www.svleague.jp/ja/sv_men/team/list",
+        "https://www.svleague.jp/ja/sv_women/team/list",
+    ):
+        try:
+            page.goto(url, wait_until="networkidle", timeout=60000)
+            page.wait_for_timeout(500)
+            imgs = page.locator("img")
+            for i in range(imgs.count()):
+                img = imgs.nth(i)
+                alt = (img.get_attribute("alt") or "").strip()
+                src = img.get_attribute("src")
+                if not alt or not src:
+                    continue
+                name = canon_team(alt)
+                if name in TEAM_NAMES:
+                    if src.startswith("/"):
+                        src = "https://www.svleague.jp" + src
+                    elif src.startswith("//"):
+                        src = "https:" + src
+                    logos[name] = src
+        except Exception as e:
+            print("TEAM LOGO ERROR:", url, e)
+    return logos
+
+def write_outputs(rows, team_logos=None):
+    team_logos = team_logos or {}
     (DATA / "broadcasts.json").write_text(
         json.dumps([asdict(r) for r in rows], ensure_ascii=False, indent=2),
         encoding="utf-8",
@@ -444,7 +495,7 @@ a{color:inherit}
 .broadcast-row{min-height:66px;padding:9px 18px;border-top:1px solid var(--line);font-size:14px}
 .broadcast-row:first-child{border-top:0}
 .station-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:9px 13px;border-radius:10px;background:linear-gradient(135deg,#c79a36,#e1be62);color:#111;font-weight:900;font-size:12px;letter-spacing:.02em;box-shadow:0 6px 16px rgba(0,0,0,.18)}
-.team{font-weight:750}.team.highlight{background:var(--blue);color:#06121a;padding:7px 10px;border-radius:8px;width:max-content;max-width:100%}
+.team-wrap{display:flex;align-items:center;gap:9px;min-width:0}.team-logo{width:34px;height:34px;object-fit:contain;flex:0 0 34px;filter:drop-shadow(0 3px 7px rgba(0,0,0,.25))}.team{font-weight:750}.team.highlight{background:var(--blue);color:#06121a;padding:7px 10px;border-radius:8px;width:max-content;max-width:100%}
 .away{display:flex;align-items:center;gap:12px}.home{display:flex;align-items:center}
 .vs{color:#71818d;font-size:11px;margin:0 8px}
 .record-cell{display:flex;align-items:center;justify-content:center}.record-check{appearance:none;width:24px;height:24px;border:2px solid #71818d;border-radius:7px;background:#071018;cursor:pointer;position:relative;transition:.18s;box-shadow:0 4px 12px rgba(0,0,0,.18)}.record-check:hover{border-color:var(--gold2);transform:scale(1.05)}.record-check:checked{background:var(--gold);border-color:var(--gold2)}.record-check:checked:after{content:"✓";position:absolute;left:4px;top:-2px;color:#111;font-size:20px;font-weight:900}.record-label{font-size:11px;color:var(--muted);margin-left:7px}.broadcast-row.reserved{background:linear-gradient(90deg,rgba(214,173,69,.06),transparent 65%)}
@@ -542,12 +593,16 @@ dateFilter.addEventListener('change',apply); loadReservations(); apply();
         for r in items:
             hcls="highlight" if r.home in ("東レアローズ滋賀","大阪ブルテオン") else ""
             acls="highlight" if r.away in ("東レアローズ滋賀","大阪ブルテオン") else ""
+            hlogo = team_logos.get(r.home, "")
+            alogo = team_logos.get(r.away, "")
+            hlogo_html = f'<img class="team-logo" src="{esc(hlogo)}" alt="" loading="lazy">' if hlogo else ''
+            alogo_html = f'<img class="team-logo" src="{esc(alogo)}" alt="" loading="lazy">' if alogo else ''
             body.append(
                 f'<div class="broadcast-row" data-station="{esc(r.station)}">'
                 f'<div><span class="station-badge">{esc(r.station)}</span></div>'
                 f'<div class="row-date">{r.broadcast_date.replace("-", "/")}</div>'
-                f'<div class="home"><span class="team {hcls}">{esc(r.home)}</span></div>'
-                f'<div class="away"><span class="team {acls}">{esc(r.away)}</span></div>'
+                f'<div class="home"><span class="team-wrap">{hlogo_html}<span class="team {hcls}">{esc(r.home)}</span></span></div>'
+                f'<div class="away"><span class="team-wrap">{alogo_html}<span class="team {acls}">{esc(r.away)}</span></span></div>'
                 f'<div class="record-cell"><label><input class="record-check" type="checkbox" aria-label="録画予約"><span class="record-label">予約</span></label></div>'
                 f'</div>'
             )
@@ -579,6 +634,11 @@ def main():
             scrape_gaora(page, rows)
         except Exception as e:
             print("GAORA ERROR:", e)
+        try:
+            scrape_jcom(page, rows)
+        except Exception as e:
+            print("J:COM ERROR:", e)
+        team_logos = scrape_team_logos(page)
         browser.close()
 
     rows = reconcile(rows)
@@ -587,10 +647,10 @@ def main():
         print("VALIDATION FAILED:", msg)
         prev = load_previous()
         if prev:
-            write_outputs(prev)
+            write_outputs(prev, team_logos if "team_logos" in locals() else {})
         raise SystemExit(2)
 
-    write_outputs(rows)
+    write_outputs(rows, team_logos)
     print(f"OK: {len(rows)} rows")
 
 if __name__ == "__main__":
