@@ -400,31 +400,68 @@ def load_previous():
         return []
 
 def scrape_team_logos(page):
-    """Harvest current team logo image URLs from SV.LEAGUE official team pages."""
+    """Harvest current team logo image URLs from the official SV.LEAGUE team list."""
     logos = {}
-    for url in (
+    urls = (
         "https://www.svleague.jp/ja/sv_men/team/list",
         "https://www.svleague.jp/ja/sv_women/team/list",
-    ):
+    )
+    for url in urls:
         try:
             page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(800)
+
+            # The team-list page may use a generic img alt such as "チーム画像".
+            # Therefore, do not rely on img[alt] alone: resolve each logo from
+            # the team-name link/card that contains the image.
+            anchors = page.locator("a")
+            for i in range(anchors.count()):
+                a = anchors.nth(i)
+                label = re.sub(r"\\s+", "", (a.inner_text(timeout=2000) or "").strip())
+                if not label:
+                    continue
+                name = canon_team(label)
+                if name not in TEAM_NAMES:
+                    continue
+
+                img = a.locator("img").first
+                if img.count() == 0:
+                    img = a.locator("xpath=ancestor::*[self::li or self::div][1]").locator("img").first
+                if img.count() == 0:
+                    continue
+
+                src = img.get_attribute("src")
+                if not src:
+                    src = img.get_attribute("data-src")
+                if not src:
+                    continue
+                if src.startswith("/"):
+                    src = "https://www.svleague.jp" + src
+                elif src.startswith("//"):
+                    src = "https:" + src
+                logos[name] = src
+
+            # Fallback: inspect image ancestors when the team name and image
+            # are not wrapped in the same anchor.
             imgs = page.locator("img")
             for i in range(imgs.count()):
                 img = imgs.nth(i)
-                alt = (img.get_attribute("alt") or "").strip()
-                src = img.get_attribute("src")
-                if not alt or not src:
+                src = img.get_attribute("src") or img.get_attribute("data-src")
+                if not src:
                     continue
-                name = canon_team(alt)
-                if name in TEAM_NAMES:
-                    if src.startswith("/"):
-                        src = "https://www.svleague.jp" + src
-                    elif src.startswith("//"):
-                        src = "https:" + src
-                    logos[name] = src
+                try:
+                    context = re.sub(r"\\s+", "", img.locator(
+                        "xpath=ancestor::*[self::a or self::li or self::div][1]"
+                    ).inner_text(timeout=1000) or "")
+                except Exception:
+                    context = ""
+                for team in TEAM_NAMES:
+                    if team in context:
+                        logos.setdefault(team, src)
+                        break
         except Exception as e:
             print("TEAM LOGO ERROR:", url, e)
+    print("TEAM LOGOS FOUND:", len(logos))
     return logos
 
 def write_outputs(rows, team_logos=None):
