@@ -380,36 +380,176 @@ def write_outputs(rows):
         for r in rows:
             w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away])
 
-    html = """<!doctype html><html lang="ja"><head><meta charset="utf-8">
+    html = """<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SVリーグ 放送予定</title>
+<meta name="theme-color" content="#071018">
+<title>SV.LEAGUE | 放送スケジュール</title>
 <style>
-body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f6f7f9;color:#111}
-main{max-width:1000px;margin:auto;padding:24px}
-h1{font-size:24px}
-table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}
-th,td{padding:12px;border-bottom:1px solid #ddd;text-align:left}
-th{background:#eee}
-td.date{background:#fff5a8}
-td.toray,td.osaka{background:#87C6FF}
-@media(max-width:650px){th,td{padding:9px 6px;font-size:13px}}
-</style></head><body><main>
-<h1>SVリーグ 放送予定</h1>
-<p>2026-27シーズン／最終更新: __UPDATED__</p>
-<table><thead><tr><th>放送局</th><th>放送日</th><th>ホームチーム</th><th>アウェイチーム</th></tr></thead>
-<tbody>__ROWS__</tbody></table></main></body></html>"""
-    trs = []
+:root{
+  --bg:#050b10;--panel:#09151e;--panel2:#0d1c27;--line:rgba(255,255,255,.09);
+  --text:#f7f9fb;--muted:#8fa0ad;--gold:#d6ad45;--gold2:#f0ce72;
+  --blue:#87c6ff;--shadow:0 20px 60px rgba(0,0,0,.28)
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:
+ radial-gradient(circle at 80% 0%,rgba(214,173,69,.11),transparent 28rem),
+ radial-gradient(circle at 10% 30%,rgba(38,109,156,.12),transparent 30rem),
+ var(--bg);color:var(--text);font-family:Inter,"Noto Sans JP",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{color:inherit}
+.shell{max-width:1240px;margin:0 auto;padding:0 28px}
+.topbar{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:rgba(3,8,12,.78);backdrop-filter:blur(14px);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:16px;font-weight:900;letter-spacing:.04em}
+.brand-mark{width:34px;height:34px;border:2px solid var(--gold);transform:skew(-18deg) rotate(8deg);position:relative;box-shadow:0 0 22px rgba(214,173,69,.18)}
+.brand-mark:after{content:"";position:absolute;inset:6px;border:1px solid var(--gold2)}
+.brand-name{font-size:22px}.brand-divider{width:1px;height:24px;background:#45515a}.brand-sub{font-size:14px;color:#dfe6eb}
+.status{display:flex;gap:18px;color:var(--muted);font-size:12px}
+.hero{min-height:310px;display:flex;align-items:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.hero:before{content:"";position:absolute;inset:0;background:
+ linear-gradient(90deg,rgba(4,10,14,.98) 0%,rgba(4,10,14,.82) 48%,rgba(4,10,14,.3) 100%),
+ repeating-linear-gradient(135deg,transparent 0 110px,rgba(214,173,69,.08) 111px 170px,transparent 171px 250px)}
+.hero:after{content:"";position:absolute;width:440px;height:440px;border:22px solid rgba(255,255,255,.08);border-radius:50%;right:8%;top:-110px;box-shadow:inset 0 0 0 7px rgba(214,173,69,.15),0 0 80px rgba(255,255,255,.04)}
+.hero-inner{position:relative;z-index:1;padding:58px 0 52px}
+.eyebrow{color:var(--gold2);font-weight:800;letter-spacing:.16em;font-size:15px}
+.hero h1{font-size:clamp(38px,6vw,72px);line-height:.95;margin:10px 0 18px;letter-spacing:-.045em}
+.hero h1 span{display:block;color:#fff}
+.hero-copy{max-width:560px;color:#b7c4cd;font-size:15px;line-height:1.9}
+.accent{width:42px;height:3px;background:var(--gold);margin:24px 0}
+.controls{padding:22px 0 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.filter{border:1px solid var(--line);background:linear-gradient(180deg,#10202b,#0a151e);color:#dce5eb;border-radius:999px;padding:10px 17px;cursor:pointer;font-weight:700;font-size:13px;transition:.2s}
+.filter:hover{transform:translateY(-1px);border-color:rgba(214,173,69,.45)}
+.filter.active{background:linear-gradient(180deg,#f1cc67,#b98924);color:#111;border-color:#e6bf57;box-shadow:0 8px 24px rgba(214,173,69,.16)}
+.date-select{margin-left:auto;background:#0b1720;border:1px solid var(--line);color:#e6edf1;border-radius:999px;padding:10px 14px;min-width:150px}
+.summary{display:flex;justify-content:space-between;align-items:end;padding:18px 2px 12px}
+.summary h2{margin:0;font-size:18px}.summary p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.count{font-size:13px;color:var(--muted)}
+.schedule{display:flex;flex-direction:column;gap:14px;padding-bottom:56px}
+.day-card{background:linear-gradient(180deg,rgba(13,28,39,.92),rgba(7,17,24,.96));border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow)}
+.day-head{padding:13px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+.day-head:before{content:"";width:4px;height:24px;background:var(--gold);border-radius:4px}
+.day-date{font-size:20px;font-weight:900;letter-spacing:.02em}.day-week{color:var(--muted);font-size:13px}
+.grid-head,.broadcast-row{display:grid;grid-template-columns:1.25fr 1fr 2fr 2fr;align-items:center}
+.grid-head{background:rgba(255,255,255,.025);color:#80919e;font-size:11px;letter-spacing:.08em;padding:9px 18px}
+.broadcast-row{min-height:66px;padding:9px 18px;border-top:1px solid var(--line);font-size:14px}
+.broadcast-row:first-child{border-top:0}
+.station-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:9px 13px;border-radius:10px;background:linear-gradient(135deg,#c79a36,#e1be62);color:#111;font-weight:900;font-size:12px;letter-spacing:.02em;box-shadow:0 6px 16px rgba(0,0,0,.18)}
+.team{font-weight:750}.team.highlight{background:var(--blue);color:#06121a;padding:7px 10px;border-radius:8px;width:max-content;max-width:100%}
+.away{display:flex;align-items:center;gap:12px}.home{display:flex;align-items:center}
+.vs{color:#71818d;font-size:11px;margin:0 8px}
+.empty{padding:48px;text-align:center;color:var(--muted)}
+.footer{border-top:1px solid var(--line);padding:24px 0 38px;color:#71818d;font-size:11px;line-height:1.7}
+.footer strong{color:#aeb9c0}
+@media(max-width:760px){
+ .shell{padding:0 14px}.status{display:none}.brand-name{font-size:18px}.brand-sub{font-size:12px}
+ .hero{min-height:300px}.hero-inner{padding:48px 0}.hero h1{font-size:44px}
+ .controls{overflow-x:auto;flex-wrap:nowrap;padding-bottom:12px}.filter{white-space:nowrap}.date-select{margin-left:0;min-width:145px}
+ .grid-head{display:none}.day-card{border-radius:12px}
+ .broadcast-row{grid-template-columns:1fr 1fr;gap:8px;padding:14px}.broadcast-row>div:nth-child(3){grid-column:1/2}.broadcast-row>div:nth-child(4){grid-column:2/3}
+ .station-badge{font-size:11px;padding:7px 9px}.team{font-size:13px}.day-date{font-size:18px}
+ .home,.away{min-width:0}.team.highlight{white-space:normal}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+ <div class="shell" style="width:100%;display:flex;align-items:center;justify-content:space-between">
+  <div class="brand"><div class="brand-mark"></div><div class="brand-name">SV.LEAGUE</div><div class="brand-divider"></div><div class="brand-sub">放送スケジュール</div></div>
+  <div class="status"><span>最終更新 __UPDATED__</span><span>↻ 自動更新｜毎日6:00</span></div>
+ </div>
+</header>
+<section class="hero"><div class="shell hero-inner">
+ <div class="eyebrow">SV.LEAGUE 2026–27</div>
+ <h1>BROADCAST<br><span>SCHEDULE</span></h1>
+ <div class="accent"></div>
+ <div class="hero-copy">SVリーグの試合をテレビ放送でチェック。<br>公式発表を優先し、各放送局の情報も照合して掲載しています。</div>
+</div></section>
+<main class="shell">
+ <div class="controls">
+  <button class="filter active" data-filter="all">すべて</button>
+  <button class="filter" data-filter="地上波">地上波</button>
+  <button class="filter" data-filter="NHK">NHK</button>
+  <button class="filter" data-filter="J SPORTS">J SPORTS</button>
+  <button class="filter" data-filter="GAORA">GAORA SPORTS</button>
+  <button class="filter" data-filter="フジテレビ">フジテレビ</button>
+  <select class="date-select" id="dateFilter"><option value="all">日付を選択</option>__DATES__</select>
+ </div>
+ <div class="summary"><div><h2>放送予定</h2><p>放送日順｜全件表示</p></div><div class="count" id="count"></div></div>
+ <section class="schedule" id="schedule">__ROWS__</section>
+ <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。</div>
+</main>
+<script>
+const cards=[...document.querySelectorAll('.day-card')];
+const buttons=[...document.querySelectorAll('.filter')];
+const dateFilter=document.getElementById('dateFilter');
+const count=document.getElementById('count');
+function apply(){
+ const f=document.querySelector('.filter.active')?.dataset.filter||'all';
+ const d=dateFilter.value;
+ let n=0;
+ cards.forEach(card=>{
+  const date=card.dataset.date;
+  const matchesDate=d==='all'||date===d;
+  let visible=0;
+  card.querySelectorAll('.broadcast-row').forEach(row=>{
+   const station=row.dataset.station;
+   const ok=f==='all'||station.includes(f);
+   row.style.display=ok?'grid':'none';
+   if(ok) visible++;
+  });
+  const show=matchesDate&&visible>0;
+  card.style.display=show?'block':'none';
+  if(show)n+=visible;
+ });
+ count.textContent=n+'件';
+}
+buttons.forEach(b=>b.addEventListener('click',()=>{buttons.forEach(x=>x.classList.remove('active'));b.classList.add('active');apply()}));
+dateFilter.addEventListener('change',apply); apply();
+</script>
+</body></html>"""
+
+    dates = sorted(set(r.broadcast_date for r in rows))
+    date_options = "".join(f'<option value="{d}">{d.replace("-", "/")}</option>' for d in dates)
+
+    from collections import defaultdict
+    grouped = defaultdict(list)
     for r in rows:
-        hcls = "toray" if r.home == "東レアローズ滋賀" else ("osaka" if r.home == "大阪ブルテオン" else "")
-        acls = "toray" if r.away == "東レアローズ滋賀" else ("osaka" if r.away == "大阪ブルテオン" else "")
-        trs.append(
-            f'<tr><td>{r.station}</td><td class="date">{r.broadcast_date.replace("-","/")}</td>'
-            f'<td class="{hcls}">{r.home}</td><td class="{acls}">{r.away}</td></tr>'
+        grouped[r.broadcast_date].append(r)
+
+    def esc(s):
+        import html as _html
+        return _html.escape(s)
+
+    day_blocks=[]
+    for d, items in sorted(grouped.items()):
+        dt=date.fromisoformat(d)
+        weekday="月火水木金土日"[dt.weekday()]
+        body=[]
+        for r in items:
+            hcls="highlight" if r.home in ("東レアローズ滋賀","大阪ブルテオン") else ""
+            acls="highlight" if r.away in ("東レアローズ滋賀","大阪ブルテオン") else ""
+            body.append(
+                f'<div class="broadcast-row" data-station="{esc(r.station)}">'
+                f'<div><span class="station-badge">{esc(r.station)}</span></div>'
+                f'<div></div>'
+                f'<div class="home"><span class="team {hcls}">{esc(r.home)}</span></div>'
+                f'<div class="away"><span class="team {acls}">{esc(r.away)}</span></div>'
+                f'</div>'
+            )
+        day_blocks.append(
+            f'<div class="day-card" data-date="{d}">'
+            f'<div class="day-head"><span class="day-date">{d[5:].replace("-", ".")}</span><span class="day-week">（{weekday}）</span></div>'
+            f'<div class="grid-head"><div>放送局</div><div>放送日</div><div>ホームチーム</div><div>アウェイチーム</div></div>'
+            f'{"".join(body)}</div>'
         )
-    html = html.replace("__ROWS__", "".join(trs)).replace(
-        "__UPDATED__", datetime.now().strftime("%Y-%m-%d %H:%M")
-    )
+
+    html = html.replace("__ROWS__", "".join(day_blocks))
+    html = html.replace("__DATES__", date_options)
+    html = html.replace("__UPDATED__", datetime.now().strftime("%Y.%m.%d %H:%M"))
     (SITE / "index.html").write_text(html, encoding="utf-8")
+
 
 def main():
     rows = []
