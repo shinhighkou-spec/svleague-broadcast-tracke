@@ -444,87 +444,82 @@ def write_outputs(rows, team_logos=None):
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#071018">
-<title>SV.LEAGUE | 放送スケジュール</title>
+<meta name="theme-color" content="#07111b">
+<title>SV.LEAGUE | TV BROADCAST</title>
 <style>
 :root{
-  --bg:#050b10;--panel:#09151e;--panel2:#0d1c27;--line:rgba(255,255,255,.09);
-  --text:#f7f9fb;--muted:#8fa0ad;--gold:#d6ad45;--gold2:#f0ce72;
-  --blue:#87c6ff;--shadow:0 20px 60px rgba(0,0,0,.28)
+  --bg:#06101a;--panel:#0b1824;--panel2:#101f2c;--line:rgba(255,255,255,.10);
+  --text:#f7fafc;--muted:#8e9eaa;--gold:#d5ad47;--gold2:#f3cf70;
+  --blue:#87c6ff;--shadow:0 18px 45px rgba(0,0,0,.24)
 }
 *{box-sizing:border-box}
-html{scroll-behavior:smooth}
-body{margin:0;background:
- radial-gradient(circle at 80% 0%,rgba(214,173,69,.11),transparent 28rem),
- radial-gradient(circle at 10% 30%,rgba(38,109,156,.12),transparent 30rem),
- var(--bg);color:var(--text);font-family:Inter,"Noto Sans JP",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-a{color:inherit}
-.shell{max-width:1240px;margin:0 auto;padding:0 28px}
-.topbar{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:rgba(3,8,12,.78);backdrop-filter:blur(14px);position:sticky;top:0;z-index:20}
-.brand{display:flex;align-items:center;gap:16px;font-weight:900;letter-spacing:.04em}
-.brand-mark{width:34px;height:34px;border:2px solid var(--gold);transform:skew(-18deg) rotate(8deg);position:relative;box-shadow:0 0 22px rgba(214,173,69,.18)}
-.brand-mark:after{content:"";position:absolute;inset:6px;border:1px solid var(--gold2)}
-.brand-name{font-size:22px}.brand-divider{width:1px;height:24px;background:#45515a}.brand-sub{font-size:14px;color:#dfe6eb}
-.status{display:flex;gap:18px;color:var(--muted);font-size:12px}
-.hero{min-height:310px;display:flex;align-items:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
-.hero:before{content:"";position:absolute;inset:0;background:
- linear-gradient(90deg,rgba(4,10,14,.98) 0%,rgba(4,10,14,.82) 48%,rgba(4,10,14,.3) 100%),
- repeating-linear-gradient(135deg,transparent 0 110px,rgba(214,173,69,.08) 111px 170px,transparent 171px 250px)}
-.hero:after{content:"";position:absolute;width:440px;height:440px;border:22px solid rgba(255,255,255,.08);border-radius:50%;right:8%;top:-110px;box-shadow:inset 0 0 0 7px rgba(214,173,69,.15),0 0 80px rgba(255,255,255,.04)}
-.hero-inner{position:relative;z-index:1;padding:58px 0 52px}
-.eyebrow{color:var(--gold2);font-weight:800;letter-spacing:.16em;font-size:15px}
-.hero h1{font-size:clamp(38px,6vw,72px);line-height:.95;margin:10px 0 18px;letter-spacing:-.045em}
-.hero h1 span{display:block;color:#fff}
-.hero-copy{max-width:560px;color:#b7c4cd;font-size:15px;line-height:1.9}
-.accent{width:42px;height:3px;background:var(--gold);margin:24px 0}
-.controls{padding:22px 0 14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.filter{border:1px solid var(--line);background:linear-gradient(180deg,#10202b,#0a151e);color:#dce5eb;border-radius:999px;padding:10px 17px;cursor:pointer;font-weight:700;font-size:13px;transition:.2s}
-.filter:hover{transform:translateY(-1px);border-color:rgba(214,173,69,.45)}
-.filter.active{background:linear-gradient(180deg,#f1cc67,#b98924);color:#111;border-color:#e6bf57;box-shadow:0 8px 24px rgba(214,173,69,.16)}
-.date-select{margin-left:auto;background:#0b1720;border:1px solid var(--line);color:#e6edf1;border-radius:999px;padding:10px 14px;min-width:150px}
-.summary{display:flex;justify-content:space-between;align-items:end;padding:18px 2px 12px}
-.summary h2{margin:0;font-size:18px}.summary p{margin:5px 0 0;color:var(--muted);font-size:12px}
-.count{font-size:13px;color:var(--muted)}
-.schedule{display:flex;flex-direction:column;gap:14px;padding-bottom:56px}
-.day-card{background:linear-gradient(180deg,rgba(13,28,39,.92),rgba(7,17,24,.96));border:1px solid var(--line);border-radius:15px;overflow:hidden;box-shadow:var(--shadow)}
-.day-head{padding:13px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
-.day-head:before{content:"";width:4px;height:24px;background:var(--gold);border-radius:4px}
-.day-date{font-size:20px;font-weight:900;letter-spacing:.02em}.day-week{color:var(--muted);font-size:13px}
-.grid-head,.broadcast-row{display:grid;grid-template-columns:1.15fr 1fr 1.9fr 1.9fr .8fr;align-items:center}
-.grid-head{background:rgba(255,255,255,.025);color:#80919e;font-size:11px;letter-spacing:.08em;padding:9px 18px}
-.broadcast-row{min-height:66px;padding:9px 18px;border-top:1px solid var(--line);font-size:14px}
-.broadcast-row:first-child{border-top:0}
-.station-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:9px 13px;border-radius:10px;background:linear-gradient(135deg,#c79a36,#e1be62);color:#111;font-weight:900;font-size:12px;letter-spacing:.02em;box-shadow:0 6px 16px rgba(0,0,0,.18)}
-.team-wrap{display:flex;align-items:center;gap:9px;min-width:0}.team-logo{width:34px;height:34px;object-fit:contain;flex:0 0 34px;filter:drop-shadow(0 3px 7px rgba(0,0,0,.25))}.team{font-weight:750}.team.highlight{background:var(--blue);color:#06121a;padding:7px 10px;border-radius:8px;width:max-content;max-width:100%}
-.away{display:flex;align-items:center;gap:12px}.home{display:flex;align-items:center}
-.vs{color:#71818d;font-size:11px;margin:0 8px}
-.record-cell{display:flex;align-items:center;justify-content:center}.record-check{appearance:none;width:24px;height:24px;border:2px solid #71818d;border-radius:7px;background:#071018;cursor:pointer;position:relative;transition:.18s;box-shadow:0 4px 12px rgba(0,0,0,.18)}.record-check:hover{border-color:var(--gold2);transform:scale(1.05)}.record-check:checked{background:var(--gold);border-color:var(--gold2)}.record-check:checked:after{content:"✓";position:absolute;left:4px;top:-2px;color:#111;font-size:20px;font-weight:900}.record-label{font-size:11px;color:var(--muted);margin-left:7px}.broadcast-row.reserved{background:linear-gradient(90deg,rgba(214,173,69,.06),transparent 65%)}
-.empty{padding:48px;text-align:center;color:var(--muted)}
-.footer{border-top:1px solid var(--line);padding:24px 0 38px;color:#71818d;font-size:11px;line-height:1.7}
-.footer strong{color:#aeb9c0}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto Sans JP",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.shell{max-width:1180px;margin:auto;padding:0 20px}
+.topbar{height:58px;border-bottom:1px solid var(--line);display:flex;align-items:center;background:#06101a;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:12px;font-weight:900}.brand-mark{width:27px;height:27px;border:2px solid var(--gold);transform:skew(-16deg) rotate(8deg);position:relative}.brand-mark:after{content:"";position:absolute;inset:5px;border:1px solid var(--gold2)}
+.brand-name{font-size:19px;letter-spacing:.04em}.brand-divider{width:1px;height:21px;background:#40505d}.brand-sub{font-size:12px;color:#c8d1d8}
+.top-status{margin-left:auto;color:var(--muted);font-size:11px}
+.hero{padding:30px 0 24px;border-bottom:1px solid var(--line);background:
+ radial-gradient(circle at 85% 10%,rgba(213,173,71,.12),transparent 23rem),
+ linear-gradient(180deg,#081522,#06101a)}
+.eyebrow{color:var(--gold2);font-size:12px;font-weight:800;letter-spacing:.18em}
+.hero h1{margin:7px 0 6px;font-size:clamp(30px,5vw,50px);line-height:.95;letter-spacing:-.04em}
+.hero p{margin:0;color:#9eabb5;font-size:13px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:18px 0 12px}
+.filter{border:1px solid var(--line);background:#0c1a27;color:#cdd7dd;border-radius:999px;padding:8px 13px;cursor:pointer;font-size:12px;font-weight:800}
+.filter.active{background:var(--gold);border-color:var(--gold);color:#111}
+.date-select{margin-left:auto;background:#0c1a27;border:1px solid var(--line);color:#e6edf1;border-radius:999px;padding:8px 12px}
+.summary{display:flex;justify-content:space-between;align-items:end;padding:7px 2px 12px}
+.summary h2{margin:0;font-size:17px}.summary p{margin:3px 0 0;color:var(--muted);font-size:11px}.count{font-size:12px;color:var(--muted)}
+.schedule{padding-bottom:42px}
+.day-card{margin:0 0 16px;background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:var(--shadow)}
+.day-head{display:flex;align-items:baseline;gap:8px;padding:12px 16px;background:#0e1e2b;border-bottom:1px solid var(--line)}
+.day-date{font-size:22px;font-weight:950;letter-spacing:.02em}.day-week{font-size:12px;color:#a3b0b9}
+.grid-head,.broadcast-row{display:grid;grid-template-columns:1.25fr .85fr 1.75fr 1.75fr .62fr;align-items:center}
+.grid-head{padding:9px 16px;background:#0b1722;color:#82929e;font-size:10px;font-weight:800;letter-spacing:.08em}
+.broadcast-row{min-height:72px;padding:9px 16px;border-top:1px solid var(--line);font-size:13px}
+.station{display:flex;align-items:center;gap:9px;min-width:0}
+.station-logo{width:52px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 52px;background:#fff;color:#071018;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.18);line-height:1}
+.station-logo.js{background:#fff}.station-logo.js b{font-size:20px;font-style:italic}.station-logo.js span{font-size:7px;letter-spacing:-.02em;margin-left:1px}
+.station-logo.gaora{background:#111;color:#fff;border:1px solid #37424a;font-size:9px;letter-spacing:.02em}
+.station-logo.fuji{background:#fff;color:#071018;font-size:13px;letter-spacing:-.08em}
+.station-logo.nhk{background:#fff;color:#111;font-size:9px}
+.station-name{font-weight:800;white-space:nowrap}
+.time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
+.team-wrap{display:flex;align-items:center;gap:9px;min-width:0}
+.team-logo{width:42px;height:42px;object-fit:contain;flex:0 0 42px;filter:drop-shadow(0 3px 7px rgba(0,0,0,.3))}
+.team{font-weight:800;line-height:1.35}
+.team.highlight{background:var(--blue);color:#06121a;padding:6px 9px;border-radius:7px;width:max-content;max-width:100%}
+.away{display:flex;align-items:center}.home{display:flex;align-items:center}
+.record-cell{display:flex;justify-content:center;align-items:center}
+.record-check{appearance:none;width:23px;height:23px;border:2px solid #6f808d;border-radius:6px;background:#07111a;cursor:pointer;position:relative}
+.record-check:checked{background:var(--gold);border-color:var(--gold2)}
+.record-check:checked:after{content:"✓";position:absolute;left:3px;top:-3px;color:#111;font-size:19px;font-weight:950}
+.broadcast-row.reserved{background:linear-gradient(90deg,rgba(213,173,71,.09),transparent 70%)}
+.footer{border-top:1px solid var(--line);padding:20px 0 32px;color:#72828d;font-size:10px;line-height:1.7}
 @media(max-width:760px){
- .shell{padding:0 14px}.status{display:none}.brand-name{font-size:18px}.brand-sub{font-size:12px}
- .hero{min-height:300px}.hero-inner{padding:48px 0}.hero h1{font-size:44px}
- .controls{overflow-x:auto;flex-wrap:nowrap;padding-bottom:12px}.filter{white-space:nowrap}.date-select{margin-left:0;min-width:145px}
- .grid-head{display:none}.day-card{border-radius:12px}
- .broadcast-row{grid-template-columns:1fr 1fr;gap:8px;padding:14px}.broadcast-row>div:nth-child(3){grid-column:1/2}.broadcast-row>div:nth-child(4){grid-column:2/3}
- .station-badge{font-size:11px;padding:7px 9px}.team{font-size:13px}.day-date{font-size:18px}
- .home,.away{min-width:0}.team.highlight{white-space:normal}
+ .shell{padding:0 12px}.top-status{display:none}.brand-name{font-size:17px}.brand-sub{font-size:11px}
+ .hero{padding:24px 0 20px}.hero h1{font-size:34px}
+ .controls{overflow-x:auto;flex-wrap:nowrap}.filter{white-space:nowrap}.date-select{margin-left:0;min-width:140px}
+ .grid-head{display:none}.day-card{border-radius:11px}
+ .broadcast-row{grid-template-columns:82px 1fr;gap:9px 10px;padding:13px 12px;min-height:0}
+ .broadcast-row>div:nth-child(1){grid-column:1}.broadcast-row>div:nth-child(2){grid-column:2}
+ .broadcast-row>div:nth-child(3){grid-column:1/3}.broadcast-row>div:nth-child(4){grid-column:1/3}.broadcast-row>div:nth-child(5){position:absolute;right:13px;top:13px}
+ .broadcast-row{position:relative;padding-right:48px}
+ .station-name{display:none}.station-logo{width:58px}.time{font-size:18px}
+ .team-logo{width:38px;height:38px;flex-basis:38px}.team{font-size:12px}
 }
 </style>
 </head>
 <body>
-<header class="topbar">
- <div class="shell" style="width:100%;display:flex;align-items:center;justify-content:space-between">
-  <div class="brand"><div class="brand-mark"></div><div class="brand-name">SV.LEAGUE</div><div class="brand-divider"></div><div class="brand-sub">放送スケジュール</div></div>
-  <div class="status"><span>最終更新 __UPDATED__</span><span>↻ 自動更新｜毎日6:00</span></div>
- </div>
-</header>
-<section class="hero"><div class="shell hero-inner">
+<header class="topbar"><div class="shell" style="width:100%;display:flex;align-items:center">
+ <div class="brand"><div class="brand-mark"></div><div class="brand-name">SV.LEAGUE</div><div class="brand-divider"></div><div class="brand-sub">TV BROADCAST</div></div>
+ <div class="top-status">最終更新 __UPDATED__</div>
+</div></header>
+<section class="hero"><div class="shell">
  <div class="eyebrow">SV.LEAGUE 2026–27</div>
- <h1>BROADCAST<br><span>SCHEDULE</span></h1>
- <div class="accent"></div>
- <div class="hero-copy">SVリーグの試合をテレビ放送でチェック。<br>公式発表を優先し、各放送局の情報も照合して掲載しています。</div>
+ <h1>テレビ放送スケジュール</h1>
+ <p>放送日・放送局・試合開始時刻・対戦カードをひと目で確認</p>
 </div></section>
 <main class="shell">
  <div class="controls">
@@ -532,11 +527,11 @@ a{color:inherit}
   <button class="filter" data-filter="地上波">地上波</button>
   <button class="filter" data-filter="NHK">NHK</button>
   <button class="filter" data-filter="J SPORTS">J SPORTS</button>
-  <button class="filter" data-filter="GAORA">GAORA SPORTS</button>
+  <button class="filter" data-filter="GAORA">GAORA</button>
   <button class="filter" data-filter="フジテレビ">フジテレビ</button>
   <select class="date-select" id="dateFilter"><option value="all">日付を選択</option>__DATES__</select>
  </div>
- <div class="summary"><div><h2>放送予定</h2><p>放送日順｜全件表示</p></div><div class="count" id="count"></div></div>
+ <div class="summary"><div><h2>放送予定</h2><p>放送日順</p></div><div class="count" id="count"></div></div>
  <section class="schedule" id="schedule">__ROWS__</section>
  <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。</div>
 </main>
@@ -546,36 +541,35 @@ const buttons=[...document.querySelectorAll('.filter')];
 const dateFilter=document.getElementById('dateFilter');
 const count=document.getElementById('count');
 function apply(){
- const f=document.querySelector('.filter.active')?.dataset.filter||'all';
- const d=dateFilter.value;
+ const f=document.querySelector('.filter.active')?.dataset.filter||'all', d=dateFilter.value;
  let n=0;
  cards.forEach(card=>{
-  const date=card.dataset.date;
-  const matchesDate=d==='all'||date===d;
-  let visible=0;
+  const okDate=d==='all'||card.dataset.date===d; let visible=0;
   card.querySelectorAll('.broadcast-row').forEach(row=>{
-   const station=row.dataset.station;
-   const ok=f==='all'||station.includes(f);
-   row.style.display=ok?'grid':'none';
-   if(ok) visible++;
+   const ok=f==='all'||row.dataset.station.includes(f);
+   row.style.display=ok?'grid':'none'; if(ok)visible++;
   });
-  const show=matchesDate&&visible>0;
-  card.style.display=show?'block':'none';
-  if(show)n+=visible;
+  card.style.display=okDate&&visible?'block':'none'; if(okDate)n+=visible;
  });
  count.textContent=n+'件';
 }
 buttons.forEach(b=>b.addEventListener('click',()=>{buttons.forEach(x=>x.classList.remove('active'));b.classList.add('active');apply()}));
 const STORAGE_KEY='svleague-recording-reservations-v1';
-function rowKey(row){ const cells=row.querySelectorAll(':scope > div'); return [row.dataset.station,cells[1]?.textContent.trim(),cells[2]?.textContent.trim(),cells[3]?.textContent.trim()].join('|'); }
-function loadReservations(){ document.querySelectorAll('.broadcast-row').forEach(row=>{ const box=row.querySelector('.record-check'); if(!box)return; const saved=localStorage.getItem(STORAGE_KEY+'|'+rowKey(row))==='1'; box.checked=saved; row.classList.toggle('reserved',saved); box.addEventListener('change',()=>{ const key=STORAGE_KEY+'|'+rowKey(row); if(box.checked){localStorage.setItem(key,'1');row.classList.add('reserved')} else{localStorage.removeItem(key);row.classList.remove('reserved')} }); }); }
-dateFilter.addEventListener('change',apply); loadReservations(); apply();
+function rowKey(row){const t=row.querySelectorAll('.team');return [row.dataset.station,row.dataset.date||'',t[0]?.textContent.trim(),t[1]?.textContent.trim()].join('|')}
+function loadReservations(){
+ document.querySelectorAll('.broadcast-row').forEach(row=>{
+  const box=row.querySelector('.record-check'); if(!box)return;
+  const key=STORAGE_KEY+'|'+rowKey(row); const saved=localStorage.getItem(key)==='1';
+  box.checked=saved; row.classList.toggle('reserved',saved);
+  box.addEventListener('change',()=>{if(box.checked){localStorage.setItem(key,'1');row.classList.add('reserved')}else{localStorage.removeItem(key);row.classList.remove('reserved')}})
+ })
+}
+dateFilter.addEventListener('change',apply);loadReservations();apply();
 </script>
 </body></html>"""
 
     dates = sorted(set(r.broadcast_date for r in rows))
     date_options = "".join(f'<option value="{d}">{d.replace("-", "/")}</option>' for d in dates)
-
     from collections import defaultdict
     grouped = defaultdict(list)
     for r in rows:
@@ -584,6 +578,17 @@ dateFilter.addEventListener('change',apply); loadReservations(); apply();
     def esc(s):
         import html as _html
         return _html.escape(s)
+
+    def station_logo(station):
+        if station.startswith("J SPORTS"):
+            return '<span class="station-logo js"><b>J</b><span>SPORTS</span></span>'
+        if station == "GAORA SPORTS":
+            return '<span class="station-logo gaora">GAORA</span>'
+        if station.startswith("フジテレビ"):
+            return '<span class="station-logo fuji">フジ</span>'
+        if station == "NHK BS":
+            return '<span class="station-logo nhk">NHK BS</span>'
+        return '<span class="station-logo">TV</span>'
 
     day_blocks=[]
     for d, items in sorted(grouped.items()):
@@ -598,18 +603,18 @@ dateFilter.addEventListener('change',apply); loadReservations(); apply();
             hlogo_html = f'<img class="team-logo" src="{esc(hlogo)}" alt="" loading="lazy">' if hlogo else ''
             alogo_html = f'<img class="team-logo" src="{esc(alogo)}" alt="" loading="lazy">' if alogo else ''
             body.append(
-                f'<div class="broadcast-row" data-station="{esc(r.station)}">'
-                f'<div><span class="station-badge">{esc(r.station)}</span></div>'
-                f'<div class="row-date">{r.broadcast_date.replace("-", "/")}</div>'
+                f'<div class="broadcast-row" data-station="{esc(r.station)}" data-date="{d}">'
+                f'<div class="station">{station_logo(r.station)}<span class="station-name">{esc(r.station)}</span></div>'
+                f'<div class="time">{esc(r.broadcast_time or "—")}</div>'
                 f'<div class="home"><span class="team-wrap">{hlogo_html}<span class="team {hcls}">{esc(r.home)}</span></span></div>'
                 f'<div class="away"><span class="team-wrap">{alogo_html}<span class="team {acls}">{esc(r.away)}</span></span></div>'
-                f'<div class="record-cell"><label><input class="record-check" type="checkbox" aria-label="録画予約"><span class="record-label">予約</span></label></div>'
+                f'<div class="record-cell"><input class="record-check" type="checkbox" aria-label="録画予約"></div>'
                 f'</div>'
             )
         day_blocks.append(
             f'<div class="day-card" data-date="{d}">'
             f'<div class="day-head"><span class="day-date">{d[5:].replace("-", ".")}</span><span class="day-week">（{weekday}）</span></div>'
-            f'<div class="grid-head"><div>放送局</div><div>放送日</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
+            f'<div class="grid-head"><div>放送局</div><div>試合開始</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
             f'{"".join(body)}</div>'
         )
 
@@ -617,7 +622,6 @@ dateFilter.addEventListener('change',apply); loadReservations(); apply();
     html = html.replace("__DATES__", date_options)
     html = html.replace("__UPDATED__", datetime.now().strftime("%Y.%m.%d %H:%M"))
     (SITE / "index.html").write_text(html, encoding="utf-8")
-
 
 def main():
     rows = []
