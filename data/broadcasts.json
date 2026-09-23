@@ -1,5 +1,13 @@
 [
   {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-09-29",
+    "home": "東京グレートベアーズ",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "known-official-fixture",
+    "broadcast_time": "18:55"
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-17",
     "home": "大阪マーヴェラス",
@@ -8,12 +16,28 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-10-17",
+    "home": "NECレッドロケッツ川崎",
+    "away": "ヴィクトリーナ姫路",
+    "source": "known-official-fixture",
+    "broadcast_time": "18:15"
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-18",
     "home": "大阪マーヴェラス",
     "away": "岡山シーガルズ",
     "source": "known-official-fixture",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-10-18",
+    "home": "NECレッドロケッツ川崎",
+    "away": "ヴィクトリーナ姫路",
+    "source": "known-official-fixture",
+    "broadcast_time": "15:15"
   },
   {
     "station": "NHK BS",
