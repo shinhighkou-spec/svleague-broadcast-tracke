@@ -1,6 +1,12 @@
 name: Update SV.LEAGUE broadcasts
 
 on:
+  push:
+    paths:
+      - "scraper.py"
+      - "data/**"
+      - "site/**"
+      - ".github/workflows/update.yml"
   schedule:
     # 06:00 JST = 21:00 UTC on the previous day
     - cron: "0 21 * * *"
