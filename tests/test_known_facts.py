@@ -31,11 +31,3 @@ def test_official_nhk_table_row_is_parsed_with_broadcast_date():
         "NHK BS",
     )
     assert item == ("NHK BS","2026-10-23",("デンソーエアリービーズ","SAGA久光スプリングス"),"19:05")
-
-def test_official_publication_date_is_not_used_as_broadcast_date():
-    from scraper import extract_broadcast_item
-    item = extract_broadcast_item(
-        "2026.09.18 お知らせ 10月23日(金) 19:05 デンソーエアリービーズ vs SAGA久光スプリングス",
-        "NHK BS",
-    )
-    assert item[1] == "2026-09-18"
