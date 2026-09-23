@@ -479,11 +479,14 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .grid-head{padding:9px 16px;background:#0b1722;color:#82929e;font-size:10px;font-weight:800;letter-spacing:.08em}
 .broadcast-row{min-height:72px;padding:9px 16px;border-top:1px solid var(--line);font-size:13px}
 .station{display:flex;align-items:center;gap:9px;min-width:0}
-.station-logo{width:52px;height:38px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 52px;background:#fff;color:#071018;font-weight:950;box-shadow:0 4px 12px rgba(0,0,0,.18);line-height:1}
-.station-logo.js{background:#fff}.station-logo.js b{font-size:20px;font-style:italic}.station-logo.js span{font-size:7px;letter-spacing:-.02em;margin-left:1px}
-.station-logo.gaora{background:#111;color:#fff;border:1px solid #37424a;font-size:9px;letter-spacing:.02em}
-.station-logo.fuji{background:#fff;color:#071018;font-size:13px;letter-spacing:-.08em}
-.station-logo.nhk{background:#fff;color:#111;font-size:9px}
+.station-logo{width:74px;height:42px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:0 0 74px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.18);padding:7px 8px;overflow:hidden}
+.station-logo img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.station-logo.js{background:#fff}.station-logo.js img{width:58px}
+.station-logo.gaora{background:#111;border:1px solid #37424a}.station-logo.gaora img{width:61px}
+.station-logo.fuji{background:#fff}.station-logo.fuji img{width:62px}
+.station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}
+.station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
+.station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
 .station-name{font-weight:800;white-space:nowrap}
 .time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
 .team-wrap{display:flex;align-items:center;gap:9px;min-width:0}
@@ -580,14 +583,25 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
         return _html.escape(s)
 
     def station_logo(station):
+        # Use the actual broadcaster marks rather than CSS-drawn approximations.
+        # The files are official broadcaster logos mirrored on Wikimedia Commons.
         if station.startswith("J SPORTS"):
-            return '<span class="station-logo js"><b>J</b><span>SPORTS</span></span>'
+            ch = station.replace("J SPORTS ", "")
+            return (
+                '<span class="station-lockup">'
+                '<span class="station-logo js"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/J_Sports_Logo.svg" alt="J SPORTS" loading="lazy"></span>'
+                f'<span class="station-channel">{esc(ch)}</span></span>'
+            )
         if station == "GAORA SPORTS":
-            return '<span class="station-logo gaora">GAORA</span>'
+            return '<span class="station-logo gaora"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/GAORA_SPORTS_logo.svg" alt="GAORA SPORTS" loading="lazy"></span>'
         if station.startswith("フジテレビ"):
-            return '<span class="station-logo fuji">フジ</span>'
+            return (
+                '<span class="station-lockup">'
+                '<span class="station-logo fuji"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/Fuji_Television_Logo.svg" alt="フジテレビ" loading="lazy"></span>'
+                '<span class="station-channel">NEXT</span></span>'
+            )
         if station == "NHK BS":
-            return '<span class="station-logo nhk">NHK BS</span>'
+            return '<span class="station-logo nhk"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/NHK_BS_2023_logo.svg" alt="NHK BS" loading="lazy"></span>'
         return '<span class="station-logo">TV</span>'
 
     day_blocks=[]
