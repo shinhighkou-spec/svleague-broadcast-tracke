@@ -533,7 +533,7 @@ dateFilter.addEventListener('change',apply); apply();
             body.append(
                 f'<div class="broadcast-row" data-station="{esc(r.station)}">'
                 f'<div><span class="station-badge">{esc(r.station)}</span></div>'
-                f'<div></div>'
+                f'<div class="row-date">{r.broadcast_date.replace("-", "/")}</div>'
                 f'<div class="home"><span class="team {hcls}">{esc(r.home)}</span></div>'
                 f'<div class="away"><span class="team {acls}">{esc(r.away)}</span></div>'
                 f'</div>'
