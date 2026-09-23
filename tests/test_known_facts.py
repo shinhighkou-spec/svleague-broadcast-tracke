@@ -11,7 +11,8 @@ def test_known_official_facts_present():
     assert ('フジテレビNEXT','2026-10-31','大阪ブルテオン','ウルフドッグス名古屋') in keys
     assert ('フジテレビNEXT','2026-11-01','大阪ブルテオン','ウルフドッグス名古屋') in keys
     assert ('GAORA SPORTS','2026-11-01','東レアローズ滋賀','デンソーエアリービーズ') in keys
-    assert ('NHK BS','2026-09-18','PFUブルーキャッツ石川かほく','SAGA久光スプリングス') in keys
+    assert ('NHK BS','2026-10-23','デンソーエアリービーズ','SAGA久光スプリングス') in keys
+    assert ('NHK BS','2026-11-01','大阪ブルテオン','ウルフドッグス名古屋') in keys
 
 def test_known_bad_rows_rejected():
     rows=reconcile([
