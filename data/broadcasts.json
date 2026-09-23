@@ -1,27 +1,11 @@
 [
   {
-    "station": "NHK BS",
-    "broadcast_date": "2026-09-18",
-    "home": "PFUブルーキャッツ石川かほく",
-    "away": "SAGA久光スプリングス",
-    "source": "known-official-fixture",
-    "broadcast_time": ""
-  },
-  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-17",
     "home": "大阪マーヴェラス",
     "away": "岡山シーガルズ",
     "source": "known-official-fixture",
     "broadcast_time": "14:05"
-  },
-  {
-    "station": "J SPORTS 2",
-    "broadcast_date": "2026-10-17",
-    "home": "NECレッドロケッツ川崎",
-    "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "18:35"
   },
   {
     "station": "GAORA SPORTS",
@@ -32,12 +16,12 @@
     "broadcast_time": "13:05"
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-10-18",
-    "home": "NECレッドロケッツ川崎",
-    "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "15:35"
+    "station": "NHK BS",
+    "broadcast_date": "2026-10-23",
+    "home": "デンソーエアリービーズ",
+    "away": "SAGA久光スプリングス",
+    "source": "known-official-fixture",
+    "broadcast_time": "19:05"
   },
   {
     "station": "GAORA SPORTS",
@@ -46,14 +30,6 @@
     "away": "PFUブルーキャッツ石川かほく",
     "source": "known-official-fixture",
     "broadcast_time": "12:05"
-  },
-  {
-    "station": "J SPORTS 2",
-    "broadcast_date": "2026-10-24",
-    "home": "ウルフドッグス名古屋",
-    "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "16:35"
   },
   {
     "station": "フジテレビNEXT",
@@ -70,14 +46,6 @@
     "away": "PFUブルーキャッツ石川かほく",
     "source": "known-official-fixture",
     "broadcast_time": "12:05"
-  },
-  {
-    "station": "J SPORTS 2",
-    "broadcast_date": "2026-10-25",
-    "home": "ウルフドッグス名古屋",
-    "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "15:35"
   },
   {
     "station": "フジテレビNEXT",
@@ -102,6 +70,14 @@
     "away": "デンソーエアリービーズ",
     "source": "known-official-fixture",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "NHK BS",
+    "broadcast_date": "2026-11-01",
+    "home": "大阪ブルテオン",
+    "away": "ウルフドッグス名古屋",
+    "source": "known-official-fixture",
+    "broadcast_time": "15:05"
   },
   {
     "station": "フジテレビNEXT",
@@ -134,5 +110,21 @@
     "away": "東レアローズ滋賀",
     "source": "known-official-fixture",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-26",
+    "home": "日本製鉄堺ブレイザーズ",
+    "away": "東京グレートベアーズ",
+    "source": "https://www.svleague.jp/news/detail/100414?grade=sv",
+    "broadcast_time": "18:35"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-27",
+    "home": "日本製鉄堺ブレイザーズ",
+    "away": "東京グレートベアーズ",
+    "source": "https://www.svleague.jp/news/detail/100414?grade=sv",
+    "broadcast_time": "18:35"
   }
 ]
