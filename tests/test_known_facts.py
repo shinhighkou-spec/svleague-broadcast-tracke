@@ -22,3 +22,20 @@ def test_known_bad_rows_rejected():
     keys={(r.station,r.broadcast_date,r.home,r.away) for r in rows}
     assert ('フジテレビNEXT','2026-09-18','PFUブルーキャッツ石川かほく','SAGA久光スプリングス') not in keys
     assert ('GAORA SPORTS','2026-10-31','東レアローズ滋賀','デンソーエアリービーズ') not in keys
+
+
+def test_official_nhk_table_row_is_parsed_with_broadcast_date():
+    from scraper import extract_broadcast_item
+    item = extract_broadcast_item(
+        "10月23日(金) 19:05 デンソーエアリービーズ vs SAGA久光スプリングス",
+        "NHK BS",
+    )
+    assert item == ("NHK BS","2026-10-23",("デンソーエアリービーズ","SAGA久光スプリングス"),"19:05")
+
+def test_official_publication_date_is_not_used_as_broadcast_date():
+    from scraper import extract_broadcast_item
+    item = extract_broadcast_item(
+        "2026.09.18 お知らせ 10月23日(金) 19:05 デンソーエアリービーズ vs SAGA久光スプリングス",
+        "NHK BS",
+    )
+    assert item[1] == "2026-09-18"
