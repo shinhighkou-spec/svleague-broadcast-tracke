@@ -1,5 +1,5 @@
 from __future__ import annotations
-import csv, json, re
+import csv, json, re, urllib.parse
 from dataclasses import dataclass, asdict
 from datetime import date, datetime
 from pathlib import Path
@@ -69,6 +69,8 @@ TEAM_MAP = {
     "A山形": "アランマーレ山形",
     "アランマーレ山形": "アランマーレ秋田庄内",
     "アランマーレ秋田庄内": "アランマーレ秋田庄内",
+    "ＫＵＲＯＢＥアクアフェアリーズ富山": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "アリーザ愛知": "アリーザ愛知",
     "KUROBE": "ＫＵＲＯＢＥアクアフェアリーズ",
     "ＫＵＲＯＢＥアクアフェアリーズ": "ＫＵＲＯＢＥアクアフェアリーズ富山",
     "ＫＵＲＯＢＥアクアフェアリーズ富山": "ＫＵＲＯＢＥアクアフェアリーズ富山",
@@ -93,6 +95,14 @@ VALID_STATIONS = {
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
+# Search aliases used by broadcasters and team media. These are only used for
+# discovery/matching; the published dataset keeps the canonical SV.LEAGUE names.
+SEARCH_TEAM_ALIASES = {
+    "アランマーレ山形": ["アランマーレ山形", "アランマーレ秋田庄内"],
+    "ＫＵＲＯＢＥアクアフェアリーズ": ["ＫＵＲＯＢＥアクアフェリーズ", "ＫＵＲＯＢＥアクアフェリーズ富山"],
+    "クインシーズ刈谷": ["クインシーズ刈谷", "アリーザ愛知"],
+    "VC長野トライデンツ": ["VC長野トライデンツ", "信州松本トライデンツ"],
+}
 
 def canon_team(s: str) -> str:
     return TEAM_MAP.get(re.sub(r"\s+", "", s).strip(), re.sub(r"\s+", "", s).strip())
@@ -389,6 +399,153 @@ def scrape_gaora(page, rows):
                     add(rows, station, d, match, url, tm)
         except Exception:
             continue
+
+# Regional TV/SNS discovery is intentionally broad. Search engines are used
+# only to discover candidate pages/posts; a row is accepted only when the same
+# result block contains a recognized TV station, a broadcast date, and both
+# teams. This prevents generic search hits and on-demand-only mentions from
+# becoming false broadcasts.
+REGIONAL_STATIONS = {
+    "北海道": ["札幌テレビ", "北海道テレビ", "北海道放送", "テレビ北海道", "北海道文化放送"],
+    "山形": ["山形テレビ", "山形放送", "さくらんぼテレビ"],
+    "茨城": ["NHK水戸", "茨城放送"],
+    "群馬": ["群馬テレビ"],
+    "埼玉": ["テレビ埼玉"],
+    "東京": ["TOKYO MX", "東京MX", "日本テレビ", "TBSテレビ", "テレビ朝日", "フジテレビ", "テレビ東京"],
+    "神奈川": ["テレビ神奈川"],
+    "富山": ["北日本放送", "富山テレビ", "チューリップテレビ"],
+    "石川": ["テレビ金沢", "北陸朝日放送", "MRO北陸放送", "石川テレビ"],
+    "長野": ["テレビ信州", "長野朝日放送", "信越放送", "長野放送"],
+    "静岡": ["静岡第一テレビ", "静岡朝日テレビ", "静岡放送", "テレビ静岡"],
+    "愛知": ["中京テレビ", "メ～テレ", "CBCテレビ", "テレビ愛知", "東海テレビ"],
+    "滋賀": ["びわ湖放送", "BBC", "NHK大津"],
+    "大阪": ["読売テレビ", "毎日放送", "朝日放送テレビ", "関西テレビ", "テレビ大阪"],
+    "兵庫": ["サンテレビ", "読売テレビ", "毎日放送", "朝日放送テレビ", "関西テレビ"],
+    "岡山": ["RSK山陽放送", "岡山放送", "テレビせとうち", "西日本放送"],
+    "広島": ["広島テレビ", "広島ホームテレビ", "中国放送", "テレビ新広島"],
+    "鹿児島": ["鹿児島テレビ", "鹿児島読売テレビ", "南日本放送", "鹿児島放送"],
+    "佐賀": ["サガテレビ", "NHK佐賀"],
+}
+BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
+
+def _bing_results(page, query, limit=8):
+    """Return small search-result blocks from Bing without requiring an API key."""
+    url = "https://www.bing.com/search?q=" + urllib.parse.quote_plus(query) + "&count=10"
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    page.wait_for_timeout(500)
+    out = []
+    items = page.locator("li.b_algo")
+    for i in range(min(items.count(), limit)):
+        try:
+            item = items.nth(i)
+            title = item.locator("h2").inner_text(timeout=1500)
+            href = item.locator("h2 a").get_attribute("href")
+            snippet = item.locator(".b_caption").inner_text(timeout=1500)
+            out.append((title, href or "", snippet))
+        except Exception:
+            continue
+    return out
+
+def _extract_search_broadcast(text):
+    """Strict candidate extraction from one search result."""
+    d = parse_date(text)
+    match = parse_match(text)
+    if not d or not match:
+        return None
+    station = None
+    for st in sorted(set(VALID_STATIONS) | {x for v in REGIONAL_STATIONS.values() for x in v}, key=len, reverse=True):
+        if st in text:
+            station = st
+            break
+    if not station or not any(w in text for w in BROADCAST_WORDS):
+        return None
+    return station, d, match, parse_time(text)
+
+def scrape_social_and_regional(page, rows):
+    """Daily discovery across all clubs, public SNS search results, and local TV.
+    Search hits are candidates; strict extraction prevents generic mentions from
+    entering the dataset."""
+    team_items = []
+    for canonical in sorted(SEARCH_TEAM_ALIASES):
+        team_items.append((canonical, SEARCH_TEAM_ALIASES[canonical]))
+    for canonical in TEAM_NAMES:
+        if canonical not in {x[0] for x in team_items}:
+            team_items.append((canonical, [canonical]))
+
+    seen = set()
+    candidate_count = 0
+    accepted = 0
+    for canonical, aliases in team_items:
+        team_query = " OR ".join('"' + a + '"' for a in aliases)
+        queries = [
+            f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) site:x.com",
+            f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) site:instagram.com",
+            f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) (テレビ局 OR CS OR BS)",
+        ]
+        for query in queries:
+            try:
+                results = _bing_results(page, query)
+            except Exception as e:
+                print("SOCIAL SEARCH ERROR:", query, e)
+                continue
+            for title, href, snippet in results:
+                candidate_count += 1
+                item = _extract_search_broadcast(" ".join((title, snippet)))
+                if not item:
+                    continue
+                station, d, match, tm = item
+                key = (station, d, match[0], match[1])
+                if key in seen:
+                    continue
+                seen.add(key)
+                add(rows, station, d, match, href or "bing-discovery", tm)
+                accepted += 1
+
+    region_terms = {
+        "北海道": ["ヴォレアス北海道", "北海道イエロースターズ"],
+        "東京": ["東京グレートベアーズ"],
+        "長野": ["信州松本トライデンツ"],
+        "静岡": ["東レアローズ静岡"],
+        "愛知": ["ジェイテクトSTINGS愛知", "ウルフドッグス名古屋", "クインシーズ刈谷", "アリーザ愛知", "デンソーエアリービーズ"],
+        "大阪": ["大阪ブルテオン", "サントリーサンバーズ大阪", "日本製鉄堺ブレイザーズ", "大阪マーヴェラス"],
+        "広島": ["広島サンダーズ"],
+        "鹿児島": ["フラーゴラッド鹿児島"],
+        "山形": ["アランマーレ山形", "アランマーレ秋田庄内"],
+        "茨城": ["Astemoリヴァーレ茨城"],
+        "群馬": ["群馬グリーンウイングス"],
+        "埼玉": ["埼玉上尾メディックス"],
+        "神奈川": ["NECレッドロケッツ川崎"],
+        "富山": ["ＫＵＲＯＢＥアクアフェアリーズ", "ＫＵＲＯＢＥアクアフェアリーズ富山"],
+        "石川": ["PFUブルーキャッツ石川かほく"],
+        "滋賀": ["東レアローズ滋賀"],
+        "兵庫": ["ヴィクトリーナ姫路"],
+        "岡山": ["岡山シーガルズ"],
+        "佐賀": ["SAGA久光スプリングス"],
+    }
+    for region, teams in region_terms.items():
+        stations = REGIONAL_STATIONS.get(region, [])
+        for team in teams:
+            query = f'"{team}" ("' + '" OR "'.join(stations) + '") (放送 OR テレビ OR 中継 OR 生中継)'
+            try:
+                results = _bing_results(page, query)
+            except Exception as e:
+                print("REGIONAL SEARCH ERROR:", region, team, e)
+                continue
+            for title, href, snippet in results:
+                candidate_count += 1
+                item = _extract_search_broadcast(" ".join((title, snippet)))
+                if not item:
+                    continue
+                station, d, match, tm = item
+                key = (station, d, match[0], match[1])
+                if key in seen:
+                    continue
+                seen.add(key)
+                add(rows, station, d, match, href or "regional-discovery", tm)
+                accepted += 1
+
+    print("SOCIAL/REGIONAL DISCOVERY CANDIDATES:", candidate_count)
+    print("SOCIAL/REGIONAL DISCOVERY ACCEPTED:", accepted)
 
 def known_facts():
     # Confirmed facts supplied from the official SV.LEAGUE/Fuji table and
@@ -772,6 +929,10 @@ def main():
             scrape_jcom(page, rows)
         except Exception as e:
             print("J:COM ERROR:", e)
+        try:
+            scrape_social_and_regional(page, rows)
+        except Exception as e:
+            print("SOCIAL/REGIONAL ERROR:", e)
         team_logos = scrape_team_logos(page)
         browser.close()
 
