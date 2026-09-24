@@ -400,7 +400,7 @@ def load_previous():
         return []
 
 def scrape_team_logos(page):
-    """Harvest current team logo image URLs from the official SV.LEAGUE team list."""
+    """Harvest current team logo URLs from official SV.LEAGUE team cards."""
     logos = {}
     urls = (
         "https://www.svleague.jp/ja/sv_men/team/list",
@@ -409,58 +409,63 @@ def scrape_team_logos(page):
     for url in urls:
         try:
             page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(1200)
 
-            # The team-list page may use a generic img alt such as "チーム画像".
-            # Therefore, do not rely on img[alt] alone: resolve each logo from
-            # the team-name link/card that contains the image.
-            anchors = page.locator("a")
-            for i in range(anchors.count()):
-                a = anchors.nth(i)
-                label = re.sub(r"\\s+", "", (a.inner_text(timeout=2000) or "").strip())
-                if not label:
-                    continue
-                name = canon_team(label)
-                if name not in TEAM_NAMES:
-                    continue
+            # Team names and images are not always wrapped by the same <a>.
+            # Use the rendered DOM: find an element whose visible text is the
+            # exact team name, then walk up several ancestors to locate an img.
+            found = page.evaluate("""
+            (teamNames) => {
+              const out = {};
+              const norm = s => (s || '').replace(/\\s+/g, '').trim();
+              const imgs = Array.from(document.images);
+              for (const team of teamNames) {
+                const candidates = Array.from(document.querySelectorAll('*'))
+                  .filter(el => norm(el.textContent) === norm(team));
+                let src = '';
+                for (const el of candidates) {
+                  let node = el;
+                  for (let level = 0; level < 7 && node; level++, node = node.parentElement) {
+                    const img = node.querySelector('img');
+                    if (img) {
+                      src = img.currentSrc || img.src || img.getAttribute('data-src') || '';
+                      if (src) break;
+                    }
+                    const bg = getComputedStyle(node).backgroundImage || '';
+                    const m = bg.match(/url\\(["']?(.*?)["']?\\)/);
+                    if (m && m[1]) { src = m[1]; break; }
+                  }
+                  if (src) break;
+                }
+                if (!src) {
+                  const img = imgs.find(img => {
+                    const text = norm(img.alt || img.title || '');
+                    return text.includes(norm(team)) || norm(team).includes(text) && text.length > 3;
+                  });
+                  if (img) src = img.currentSrc || img.src || img.getAttribute('data-src') || '';
+                }
+                if (src) out[team] = src;
+              }
+              return out;
+            }
+            """, TEAM_NAMES)
 
-                img = a.locator("img").first
-                if img.count() == 0:
-                    img = a.locator("xpath=ancestor::*[self::li or self::div][1]").locator("img").first
-                if img.count() == 0:
+            for raw_name, src in (found or {}).items():
+                name = canon_team(raw_name)
+                if name not in TEAM_NAMES or not src:
                     continue
-
-                src = img.get_attribute("src")
-                if not src:
-                    src = img.get_attribute("data-src")
-                if not src:
-                    continue
-                if src.startswith("/"):
-                    src = "https://www.svleague.jp" + src
-                elif src.startswith("//"):
+                if src.startswith("//"):
                     src = "https:" + src
+                elif src.startswith("/"):
+                    src = "https://www.svleague.jp" + src
                 logos[name] = src
 
-            # Fallback: inspect image ancestors when the team name and image
-            # are not wrapped in the same anchor.
-            imgs = page.locator("img")
-            for i in range(imgs.count()):
-                img = imgs.nth(i)
-                src = img.get_attribute("src") or img.get_attribute("data-src")
-                if not src:
-                    continue
-                try:
-                    context = re.sub(r"\\s+", "", img.locator(
-                        "xpath=ancestor::*[self::a or self::li or self::div][1]"
-                    ).inner_text(timeout=1000) or "")
-                except Exception:
-                    context = ""
-                for team in TEAM_NAMES:
-                    if team in context:
-                        logos.setdefault(team, src)
-                        break
         except Exception as e:
             print("TEAM LOGO ERROR:", url, e)
+
+    # The DOM scrape should find every current SV club. If a future site
+    # redesign blocks image extraction, fail loudly rather than publishing
+    # rows with silently missing team logos.
     print("TEAM LOGOS FOUND:", len(logos))
     return logos
 
