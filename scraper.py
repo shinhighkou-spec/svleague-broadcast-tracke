@@ -626,43 +626,45 @@ def load_previous():
     except Exception:
         return []
 
+TEAM_LOGO_IDS = {
+    "アランマーレ山形": "457",
+    "デンソーエアリービーズ": "265",
+    "Astemoリヴァーレ茨城": "264",
+    "群馬グリーンウイングス": "458",
+    "埼玉上尾メディックス": "281",
+    "NECレッドロケッツ川崎": "284",
+    "ＫＵＲＯＢＥアクアフェアリーズ富山": "277",
+    "PFUブルーキャッツ石川かほく": "275",
+    "クインシーズ刈谷": "266",
+    "東レアローズ滋賀": "283",
+    "大阪マーヴェラス": "285",
+    "ヴィクトリーナ姫路": "481",
+    "岡山シーガルズ": "263",
+    "SAGA久光スプリングス": "261",
+    "ヴォレアス北海道": "479",
+    "北海道イエロースターズ": "483",
+    "東京グレートベアーズ": "495",
+    "VC長野トライデンツ": "461",
+    "東レアローズ静岡": "257",
+    "ジェイテクトSTINGS愛知": "268",
+    "ウルフドッグス名古屋": "258",
+    "大阪ブルテオン": "256",
+    "サントリーサンバーズ大阪": "252",
+    "日本製鉄堺ブレイザーズ": "251",
+    "広島サンダーズ": "255",
+    "フラーゴラッド鹿児島": "499",
+}
+
 def scrape_team_logos(page):
-    """Get team-badge URLs from official SV.LEAGUE team-detail links.
-    Detail pages expose a stable logo path: /ext/team/{id}/team-logo.png.
+    """Use fixed official team-detail IDs so logo harvesting does not depend on
+    the dynamically rendered team-list pages. The raw team-logo.png contains
+    the badge itself; the UI does not add a circular background.
     """
-    logos = {}
-    urls = (
-        "https://www.svleague.jp/ja/sv_men/team/list/",
-        "https://www.svleague.jp/ja/sv_women/team/list/",
-    )
-    for url in urls:
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            page.wait_for_timeout(1000)
-            links = page.locator('a[href*="/team/detail/"]')
-            count = links.count()
-            print("TEAM LOGO PAGE LINKS:", url, count)
-            for i in range(count):
-                try:
-                    link = links.nth(i)
-                    href = link.get_attribute("href") or ""
-                    raw_name = re.sub(r"\s+", "", link.inner_text()).strip()
-                    m = re.search(r"/team/detail/(\d+)", href)
-                    if not m:
-                        continue
-                    name = canon_team(raw_name)
-                    if name not in TEAM_NAMES:
-                        text = re.sub(r"\s+", "", link.inner_text())
-                        matches = [n for n in TEAM_NAMES if n in text or text in n]
-                        if len(matches) == 1:
-                            name = matches[0]
-                    if name in TEAM_NAMES:
-                        team_id = m.group(1)
-                        logos[name] = f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
-                except Exception:
-                    continue
-        except Exception as e:
-            print("TEAM LOGO ERROR:", url, e)
+    logos = {
+        name: f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
+        for name, team_id in TEAM_LOGO_IDS.items()
+        if name in TEAM_NAMES
+    }
     print("TEAM LOGOS FOUND:", len(logos))
     print("TEAM LOGO TEAMS:", ", ".join(sorted(logos)))
     return logos
@@ -730,7 +732,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-name{font-weight:800;white-space:nowrap}
 .time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
 .team-wrap{display:flex;align-items:center;gap:9px;min-width:0}
-.team-logo{width:42px;height:42px;object-fit:contain;flex:0 0 42px;filter:drop-shadow(0 3px 7px rgba(0,0,0,.3))}
+.team-logo{width:44px;height:44px;object-fit:contain;flex:0 0 44px;display:block;filter:none;background:transparent}
 .team{font-weight:800;line-height:1.35}
 .team.highlight{background:var(--blue);color:#06121a;padding:6px 9px;border-radius:7px;width:max-content;max-width:100%}
 .away{display:flex;align-items:center}.home{display:flex;align-items:center}
@@ -750,7 +752,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
  .broadcast-row>div:nth-child(3){grid-column:1/3}.broadcast-row>div:nth-child(4){grid-column:1/3}.broadcast-row>div:nth-child(5){position:absolute;right:13px;top:13px}
  .broadcast-row{position:relative;padding-right:48px}
  .station-name{display:none}.station-logo{width:58px}.time{font-size:18px}
- .team-logo{width:38px;height:38px;flex-basis:38px}.team{font-size:12px}
+ .team-logo{width:40px;height:40px;flex-basis:40px}.team{font-size:12px}
 }
 </style>
 </head>
