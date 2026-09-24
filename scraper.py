@@ -627,73 +627,44 @@ def load_previous():
         return []
 
 def scrape_team_logos(page):
-    """Harvest current team logo URLs from official SV.LEAGUE team cards."""
+    """Get team-badge URLs from official SV.LEAGUE team-detail links.
+    Detail pages expose a stable logo path: /ext/team/{id}/team-logo.png.
+    """
     logos = {}
     urls = (
-        "https://www.svleague.jp/ja/sv_men/team/list",
-        "https://www.svleague.jp/ja/sv_women/team/list",
+        "https://www.svleague.jp/ja/sv_men/team/list/",
+        "https://www.svleague.jp/ja/sv_women/team/list/",
     )
     for url in urls:
         try:
-            page.goto(url, wait_until="networkidle", timeout=60000)
-            page.wait_for_timeout(1200)
-
-            # Team names and images are not always wrapped by the same <a>.
-            # Use the rendered DOM: find an element whose visible text is the
-            # exact team name, then walk up several ancestors to locate an img.
-            found = page.evaluate("""
-            (teamNames) => {
-              const out = {};
-              const norm = s => (s || '').replace(/\\s+/g, '').trim();
-              const imgs = Array.from(document.images);
-              for (const team of teamNames) {
-                const candidates = Array.from(document.querySelectorAll('*'))
-                  .filter(el => norm(el.textContent) === norm(team));
-                let src = '';
-                for (const el of candidates) {
-                  let node = el;
-                  for (let level = 0; level < 7 && node; level++, node = node.parentElement) {
-                    const img = node.querySelector('img');
-                    if (img) {
-                      src = img.currentSrc || img.src || img.getAttribute('data-src') || '';
-                      if (src) break;
-                    }
-                    const bg = getComputedStyle(node).backgroundImage || '';
-                    const m = bg.match(/url\\(["']?(.*?)["']?\\)/);
-                    if (m && m[1]) { src = m[1]; break; }
-                  }
-                  if (src) break;
-                }
-                if (!src) {
-                  const img = imgs.find(img => {
-                    const text = norm(img.alt || img.title || '');
-                    return text.includes(norm(team)) || norm(team).includes(text) && text.length > 3;
-                  });
-                  if (img) src = img.currentSrc || img.src || img.getAttribute('data-src') || '';
-                }
-                if (src) out[team] = src;
-              }
-              return out;
-            }
-            """, TEAM_NAMES)
-
-            for raw_name, src in (found or {}).items():
-                name = canon_team(raw_name)
-                if name not in TEAM_NAMES or not src:
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            page.wait_for_timeout(1000)
+            links = page.locator('a[href*="/team/detail/"]')
+            count = links.count()
+            print("TEAM LOGO PAGE LINKS:", url, count)
+            for i in range(count):
+                try:
+                    link = links.nth(i)
+                    href = link.get_attribute("href") or ""
+                    raw_name = re.sub(r"\s+", "", link.inner_text()).strip()
+                    m = re.search(r"/team/detail/(\d+)", href)
+                    if not m:
+                        continue
+                    name = canon_team(raw_name)
+                    if name not in TEAM_NAMES:
+                        text = re.sub(r"\s+", "", link.inner_text())
+                        matches = [n for n in TEAM_NAMES if n in text or text in n]
+                        if len(matches) == 1:
+                            name = matches[0]
+                    if name in TEAM_NAMES:
+                        team_id = m.group(1)
+                        logos[name] = f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
+                except Exception:
                     continue
-                if src.startswith("//"):
-                    src = "https:" + src
-                elif src.startswith("/"):
-                    src = "https://www.svleague.jp" + src
-                logos[name] = src
-
         except Exception as e:
             print("TEAM LOGO ERROR:", url, e)
-
-    # The DOM scrape should find every current SV club. If a future site
-    # redesign blocks image extraction, fail loudly rather than publishing
-    # rows with silently missing team logos.
     print("TEAM LOGOS FOUND:", len(logos))
+    print("TEAM LOGO TEAMS:", ", ".join(sorted(logos)))
     return logos
 
 def write_outputs(rows, team_logos=None):
