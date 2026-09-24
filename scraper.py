@@ -435,77 +435,149 @@ BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画",
 VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
 
 def _bing_results(page, query, limit=8):
-    """Return small search-result blocks from Bing without requiring an API key."""
+    """Return search-result candidates. Search snippets are NEVER broadcast evidence."""
     url = "https://www.bing.com/search?q=" + urllib.parse.quote_plus(query) + "&count=10"
-    page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    page.wait_for_timeout(500)
-    out = []
-    items = page.locator("li.b_algo")
-    for i in range(min(items.count(), limit)):
+    last_error = None
+    for attempt in range(2):
         try:
-            item = items.nth(i)
-            title = item.locator("h2").inner_text(timeout=1500)
-            href = item.locator("h2 a").get_attribute("href")
-            snippet = item.locator(".b_caption").inner_text(timeout=1500)
-            out.append((title, href or "", snippet))
-        except Exception:
-            continue
-    return out
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(700)
+            out = []
+            items = page.locator("li.b_algo")
+            for i in range(min(items.count(), limit)):
+                try:
+                    item = items.nth(i)
+                    title = item.locator("h2").inner_text(timeout=1500)
+                    href = item.locator("h2 a").get_attribute("href")
+                    snippet = item.locator(".b_caption").inner_text(timeout=1500)
+                    out.append((title, href or "", snippet))
+                except Exception:
+                    continue
+            return out
+        except Exception as e:
+            last_error = e
+            if attempt == 0:
+                page.wait_for_timeout(1000)
+    raise RuntimeError(f"Bing search failed after retry: {last_error}")
 
-def _extract_search_broadcast(text):
-    """Strict candidate extraction from one search result."""
+def _extract_search_broadcast(text, require_time=False):
+    """Extract a candidate from text. This is only a candidate until its URL is opened."""
     d = parse_date(text)
     match = parse_match(text)
     if not d or not match:
         return None
     station = None
-    for st in sorted(set(VALID_STATIONS) | {x for v in REGIONAL_STATIONS.values() for x in v}, key=len, reverse=True):
+    for st in sorted(VALID_STATIONS, key=len, reverse=True):
         if st in text:
             station = st
             break
     if not station or not any(w in text for w in BROADCAST_WORDS):
         return None
-    return station, d, match, parse_time(text)
+    tm = parse_time(text)
+    if require_time and not tm:
+        return None
+    return station, d, match, tm
+
+def _page_evidence_text(page):
+    """Collect visible text plus useful metadata from the opened source page."""
+    parts = []
+    try:
+        parts.append(page.locator("body").inner_text(timeout=10000))
+    except Exception:
+        pass
+    for selector in (
+        'meta[property="og:title"]',
+        'meta[property="og:description"]',
+        'meta[name="description"]',
+        'meta[property="article:published_time"]',
+    ):
+        try:
+            loc = page.locator(selector)
+            for i in range(loc.count()):
+                content = loc.nth(i).get_attribute("content")
+                if content:
+                    parts.append(content)
+        except Exception:
+            pass
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
+def _verify_search_result(page, title, href, snippet):
+    """Open a search result and require the source page itself to confirm the broadcast.
+    Required evidence: station + broadcast date + start time + both teams."""
+    candidate = _extract_search_broadcast(" ".join((title, snippet)), require_time=False)
+    if not candidate or not href:
+        return None
+    try:
+        page.goto(href, wait_until="domcontentloaded", timeout=30000)
+        page.wait_for_timeout(700)
+        evidence = _page_evidence_text(page)
+        verified = _extract_search_broadcast(evidence, require_time=True)
+        if not verified:
+            return None
+        if verified[:3] != candidate[:3]:
+            return None
+        return verified
+    except Exception as e:
+        print("SEARCH RESULT VERIFY ERROR:", href, e)
+        return None
 
 def scrape_social_and_regional(page, rows):
-    """Daily discovery across all clubs, public SNS search results, and local TV.
-    Search hits are candidates; strict extraction prevents generic mentions from
-    entering the dataset."""
+    """Daily discovery across team X/Instagram and regional TV sources.
+    Search results are candidates only. A result enters the dataset only after
+    opening its source URL and confirming station, date, start time and both teams."""
     team_items = []
+    seen_team = set()
     for canonical in sorted(SEARCH_TEAM_ALIASES):
         team_items.append((canonical, SEARCH_TEAM_ALIASES[canonical]))
+        seen_team.add(canonical)
     for canonical in TEAM_NAMES:
-        if canonical not in {x[0] for x in team_items}:
+        if canonical not in seen_team:
             team_items.append((canonical, [canonical]))
 
     seen = set()
     candidate_count = 0
+    verified_count = 0
     accepted = 0
+    search_failures = 0
+
+    def process_results(results):
+        nonlocal candidate_count, verified_count, accepted
+        for title, href, snippet in results:
+            candidate_count += 1
+            item = _verify_search_result(page, title, href, snippet)
+            if not item:
+                continue
+            verified_count += 1
+            station, d, match, tm = item
+            key = (station, d, match[0], match[1])
+            if key in seen:
+                continue
+            seen.add(key)
+            add(rows, station, d, match, href, tm)
+            accepted += 1
+
+    def search_and_process(query, error_label):
+        nonlocal search_failures
+        try:
+            process_results(_bing_results(page, query))
+        except Exception as e:
+            search_failures += 1
+            print(error_label, query, e)
+
     for canonical, aliases in team_items:
         team_query = " OR ".join('"' + a + '"' for a in aliases)
-        queries = [
+        search_and_process(
             f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) site:x.com",
+            "SOCIAL X SEARCH ERROR:",
+        )
+        search_and_process(
             f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) site:instagram.com",
+            "SOCIAL INSTAGRAM SEARCH ERROR:",
+        )
+        search_and_process(
             f"({team_query}) (放送 OR テレビ OR 中継 OR 生中継) (テレビ局 OR CS OR BS)",
-        ]
-        for query in queries:
-            try:
-                results = _bing_results(page, query)
-            except Exception as e:
-                print("SOCIAL SEARCH ERROR:", query, e)
-                continue
-            for title, href, snippet in results:
-                candidate_count += 1
-                item = _extract_search_broadcast(" ".join((title, snippet)))
-                if not item:
-                    continue
-                station, d, match, tm = item
-                key = (station, d, match[0], match[1])
-                if key in seen:
-                    continue
-                seen.add(key)
-                add(rows, station, d, match, href or "bing-discovery", tm)
-                accepted += 1
+            "TEAM WEB SEARCH ERROR:",
+        )
 
     region_terms = {
         "北海道": ["ヴォレアス北海道", "北海道イエロースターズ"],
@@ -530,28 +602,42 @@ def scrape_social_and_regional(page, rows):
     }
     for region, teams in region_terms.items():
         stations = REGIONAL_STATIONS.get(region, [])
+        station_query = " OR ".join('"' + st + '"' for st in stations)
         for team in teams:
-            query = f'"{team}" ("' + '" OR "'.join(stations) + '") (放送 OR テレビ OR 中継 OR 生中継)'
-            try:
-                results = _bing_results(page, query)
-            except Exception as e:
-                print("REGIONAL SEARCH ERROR:", region, team, e)
-                continue
-            for title, href, snippet in results:
-                candidate_count += 1
-                item = _extract_search_broadcast(" ".join((title, snippet)))
-                if not item:
-                    continue
-                station, d, match, tm = item
-                key = (station, d, match[0], match[1])
-                if key in seen:
-                    continue
-                seen.add(key)
-                add(rows, station, d, match, href or "regional-discovery", tm)
-                accepted += 1
+            search_and_process(
+                f'"{team}" ({station_query}) (放送 OR テレビ OR 中継 OR 生中継)',
+                f"REGIONAL WEB SEARCH ERROR {region}:",
+            )
+            search_and_process(
+                f'"{team}" ({station_query}) (放送 OR テレビ OR 中継) site:x.com',
+                f"REGIONAL X SEARCH ERROR {region}:",
+            )
+            search_and_process(
+                f'"{team}" ({station_query}) (放送 OR テレビ OR 中継) site:instagram.com',
+                f"REGIONAL INSTAGRAM SEARCH ERROR {region}:",
+            )
+
+        # Station-level searches catch announcements that name the match on
+        # the broadcaster page rather than in the search snippet.
+        for station in stations:
+            search_and_process(
+                f'"{station}" (SVリーグ OR バレーボール) (放送 OR 中継)',
+                f"STATION WEB SEARCH ERROR {region}:",
+            )
+            search_and_process(
+                f'"{station}" (SVリーグ OR バレーボール) (放送 OR 中継) site:x.com',
+                f"STATION X SEARCH ERROR {region}:",
+            )
+            search_and_process(
+                f'"{station}" (SVリーグ OR バレーボール) (放送 OR 中継) site:instagram.com',
+                f"STATION INSTAGRAM SEARCH ERROR {region}:",
+            )
 
     print("SOCIAL/REGIONAL DISCOVERY CANDIDATES:", candidate_count)
+    print("SOCIAL/REGIONAL DISCOVERY VERIFIED:", verified_count)
     print("SOCIAL/REGIONAL DISCOVERY ACCEPTED:", accepted)
+    print("SOCIAL/REGIONAL DISCOVERY SEARCH FAILURES:", search_failures)
+
 
 def known_facts():
     # Confirmed facts supplied from the official SV.LEAGUE/Fuji table and
