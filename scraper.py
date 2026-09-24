@@ -689,6 +689,10 @@ def scrape_team_logos(page):
         name: f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
         for name, team_id in TEAM_LOGO_IDS.items()
     }
+    # Broadcaster pages may use the alternate current media name for Aranmare.
+    # Keep the same official badge available under both names so a published row
+    # can never lose its logo merely because the source used an alias.
+    logos["アランマーレ秋田庄内"] = logos["アランマーレ山形"]
     validate_team_logos(logos)
     print("TEAM LOGOS FOUND:", len(logos))
     print("TEAM LOGO TEAMS:", ", ".join(sorted(logos)))
