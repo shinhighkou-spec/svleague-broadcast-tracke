@@ -274,6 +274,71 @@ def scrape_official(page, rows):
 
     if parsed_articles == 0:
         raise RuntimeError("No broadcast records could be safely parsed from official SV.LEAGUE news articles")
+def parse_jsports_time(text: str) -> str:
+    m = re.search(r"(?:午前|午後|深夜)\s*(\d{1,2}):(\d{2})", text)
+    if not m:
+        return ""
+    hour = int(m.group(1))
+    minute = m.group(2)
+    if "午後" in text and hour < 12:
+        hour += 12
+    if "深夜" in text and hour == 12:
+        hour = 0
+    return f"{hour:02d}:{minute}"
+
+def scrape_jsports_official(page, rows):
+    """Authoritative supplemental source for J SPORTS TV broadcasts.
+    J SPORTS official pages are checked independently of SV.LEAGUE. When a
+    match is published there first, it is eligible immediately. Channel names
+    are resolved from J SPORTS' own channel program guides (1-4)."""
+    urls = (
+        "https://www.jsports.co.jp/volleyball/",
+        "https://www.jsports.co.jp/volleyball/svleague_men/",
+        "https://www.jsports.co.jp/volleyball/svleague_women/",
+        "https://www.jsports.co.jp/volleyball/preseason/",
+    )
+    candidates = []
+    for url in urls:
+        try:
+            page.goto(url, wait_until="networkidle", timeout=60000)
+            page.wait_for_timeout(700)
+            text = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
+            m = re.search(r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", text)
+            section = m.group(1) if m else ""
+            if not section:
+                continue
+            for mm in re.finditer(
+                r"(\d{1,2})月(\d{1,2})日(?:（[^）]+）)?(.{0,260}?)(大同生命SVリーグ[^。]{0,180}?"
+                r"((?:東京グレートベアーズ|北海道イエロースターズ|ウルフドッグス名古屋|フラーゴラッド鹿児島|大阪ブルテオン|サントリーサンバーズ大阪|日本製鉄堺ブレイザーズ|広島サンダーズ|信州松本トライデンツ|東レアローズ静岡|ジェイテクトSTINGS愛知|ヴォレアス北海道|NECレッドロケッツ川崎|ヴィクトリーナ姫路|デンソーエアリービーズ|SAGA久光スプリングス|大阪マーヴェラス|岡山シーガルズ|PFUブルーキャッツ石川かほく|東レアローズ滋賀|埼玉上尾メディックス|Astemoリヴァーレ茨城|群馬グリーンウイングス|クインシーズ刈谷|ＫＵＲＯＢＥアクアフェアリーズ|アランマーレ山形)\s*(?:vs\.?|VS|対)\s*(?:東京グレートベアーズ|北海道イエロースターズ|ウルフドッグス名古屋|フラーゴラッド鹿児島|大阪ブルテオン|サントリーサンバーズ大阪|日本製鉄堺ブレイザーズ|広島サンダーズ|信州松本トライデンツ|東レアローズ静岡|ジェイテクトSTINGS愛知|ヴォレアス北海道|NECレッドロケッツ川崎|ヴィクトリーナ姫路|デンソーエアリービーズ|SAGA久光スプリングス|大阪マーヴェラス|岡山シーガルズ|PFUブルーキャッツ石川かほく|東レアローズ滋賀|埼玉上尾メディックス|Astemoリヴァーレ茨城|群馬グリーンウイングス|クインシーズ刈谷|ＫＵＲＯＢＥアクアフェアリーズ|アランマーレ山形))",
+                section,
+            ):
+                month, day = int(mm.group(1)), int(mm.group(2))
+                d = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+                match = parse_match(mm.group(0))
+                if match:
+                    candidates.append((d, match, parse_jsports_time(mm.group(0)), url))
+        except Exception as e:
+            print("J SPORTS OFFICIAL ERROR:", url, e)
+
+    unique = {}
+    for d, match, tm, source in candidates:
+        unique[(d, match[0], match[1])] = (tm, source)
+
+    for (d, home, away), (tm, source) in unique.items():
+        ymd = d.replace("-", "")[2:]
+        for ch, slug in ((1, "one"), (2, "two"), (3, "three"), (4, "four")):
+            url = f"https://www.jsports.co.jp/program_guide/channel/japanese/{slug}/{ymd}/"
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=45000)
+                page.wait_for_timeout(350)
+                body = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=8000))
+                if home in body and away in body and f"({d[5:7]}/{d[8:10]})" in body:
+                    add(rows, f"J SPORTS {ch}", d, (home, away), url, tm)
+                    break
+            except Exception as e:
+                print("J SPORTS CHANNEL ERROR:", url, e)
+    print("J SPORTS OFFICIAL CANDIDATES:", len(unique))
+
 def scrape_jcom(page, rows):
     """Supplemental TV/CS source. Only accept an explicit J SPORTS channel
     together with broadcast date, time, and both teams in one small DOM block.
@@ -347,6 +412,10 @@ def known_facts():
         Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"18:55"),
         Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:15"),
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
+        Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:25"),
+        Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
+        Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
+        Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
     ]
 
 def reconcile(rows):
@@ -695,6 +764,10 @@ def main():
             scrape_gaora(page, rows)
         except Exception as e:
             print("GAORA ERROR:", e)
+        try:
+            scrape_jsports_official(page, rows)
+        except Exception as e:
+            print("J SPORTS ERROR:", e)
         try:
             scrape_jcom(page, rows)
         except Exception as e:
