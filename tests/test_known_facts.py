@@ -31,3 +31,22 @@ def test_official_nhk_table_row_is_parsed_with_broadcast_date():
         "NHK BS",
     )
     assert item == ("NHK BS","2026-10-23",("デンソーエアリービーズ","SAGA久光スプリングス"),"19:05")
+
+
+def test_team_logo_registry_is_complete():
+    from scraper import EXPECTED_TEAM_LOGO_NAMES, TEAM_LOGO_IDS, scrape_team_logos, validate_team_logos
+    assert set(TEAM_LOGO_IDS) == EXPECTED_TEAM_LOGO_NAMES
+    logos = scrape_team_logos(None)
+    validate_team_logos(logos)
+
+
+def test_team_logo_validation_rejects_missing_logo_for_published_row():
+    from scraper import Broadcast, validate_team_logos
+    logos = {"フラーゴラッド鹿児島": "https://www.svleague.jp/ext/team/499/team-logo.png"}
+    rows = [Broadcast("J SPORTS 1", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ", "test", "")]
+    try:
+        validate_team_logos(logos, rows)
+    except RuntimeError as e:
+        assert "北海道イエロースターズ" in str(e)
+    else:
+        raise AssertionError("missing team logo must fail validation")
