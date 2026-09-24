@@ -427,6 +427,7 @@ REGIONAL_STATIONS = {
     "佐賀": ["サガテレビ", "NHK佐賀"],
 }
 BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
+VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
 
 def _bing_results(page, query, limit=8):
     """Return small search-result blocks from Bing without requiring an API key."""
