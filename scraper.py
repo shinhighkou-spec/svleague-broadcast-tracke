@@ -663,7 +663,6 @@ def scrape_team_logos(page):
     logos = {
         name: f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
         for name, team_id in TEAM_LOGO_IDS.items()
-        if name in TEAM_NAMES
     }
     print("TEAM LOGOS FOUND:", len(logos))
     print("TEAM LOGO TEAMS:", ", ".join(sorted(logos)))
