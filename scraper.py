@@ -124,7 +124,12 @@ def parse_date(s: str) -> str | None:
 
 def parse_time(s: str) -> str:
     m = re.search(r"(?<!\d)(\d{1,2}):(\d{2})(?!\d)", s)
-    return f"{int(m.group(1)):02d}:{m.group(2)}" if m else ""
+    if m:
+        return f"{int(m.group(1)):02d}:{m.group(2)}"
+    m = re.search(r"(?<!\d)(\d{1,2})時(\d{1,2})?分?", s)
+    if m:
+        return f"{int(m.group(1)):02d}:{int(m.group(2) or 0):02d}"
+    return ""
 
 def valid_season_date(d: str) -> bool:
     try:
