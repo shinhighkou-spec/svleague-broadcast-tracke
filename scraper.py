@@ -655,6 +655,31 @@ TEAM_LOGO_IDS = {
     "フラーゴラッド鹿児島": "499",
 }
 
+EXPECTED_TEAM_LOGO_NAMES = {
+    "アランマーレ山形", "デンソーエアリービーズ", "Astemoリヴァーレ茨城", "群馬グリーンウイングス",
+    "埼玉上尾メディックス", "NECレッドロケッツ川崎", "ＫＵＲＯＢＥアクアフェアリーズ富山", "PFUブルーキャッツ石川かほく",
+    "クインシーズ刈谷", "東レアローズ滋賀", "大阪マーヴェラス", "ヴィクトリーナ姫路", "岡山シーガルズ", "SAGA久光スプリングス",
+    "ヴォレアス北海道", "北海道イエロースターズ", "東京グレートベアーズ", "VC長野トライデンツ", "東レアローズ静岡",
+    "ジェイテクトSTINGS愛知", "ウルフドッグス名古屋", "大阪ブルテオン", "サントリーサンバーズ大阪", "日本製鉄堺ブレイザーズ",
+    "広島サンダーズ", "フラーゴラッド鹿児島",
+}
+
+def validate_team_logos(team_logos, rows=None):
+    missing = sorted(EXPECTED_TEAM_LOGO_NAMES - set(team_logos))
+    if missing:
+        raise RuntimeError("TEAM LOGO COVERAGE FAILED: missing expected teams: " + ", ".join(missing))
+    if rows is not None:
+        row_teams = {r.home for r in rows} | {r.away for r in rows}
+        missing_rows = sorted(row_teams - set(team_logos))
+        if missing_rows:
+            raise RuntimeError("TEAM LOGO COVERAGE FAILED: published rows have no logo: " + ", ".join(missing_rows))
+    bad_urls = sorted(
+        name for name, team_id in TEAM_LOGO_IDS.items()
+        if team_logos.get(name) != f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
+    )
+    if bad_urls:
+        raise RuntimeError("TEAM LOGO URL FAILED: " + ", ".join(bad_urls))
+
 def scrape_team_logos(page):
     """Use fixed official team-detail IDs so logo harvesting does not depend on
     the dynamically rendered team-list pages. The raw team-logo.png contains
@@ -664,6 +689,7 @@ def scrape_team_logos(page):
         name: f"https://www.svleague.jp/ext/team/{team_id}/team-logo.png"
         for name, team_id in TEAM_LOGO_IDS.items()
     }
+    validate_team_logos(logos)
     print("TEAM LOGOS FOUND:", len(logos))
     print("TEAM LOGO TEAMS:", ", ".join(sorted(logos)))
     return logos
@@ -910,6 +936,14 @@ def main():
         browser.close()
 
     rows = reconcile(rows)
+    try:
+        validate_team_logos(team_logos, rows)
+    except Exception as e:
+        print("VALIDATION FAILED:", e)
+        prev = load_previous()
+        if prev:
+            write_outputs(prev, team_logos if "team_logos" in locals() else {})
+        raise SystemExit(2)
     ok, msg = validate(rows, official_ok)
     if not ok:
         print("VALIDATION FAILED:", msg)
