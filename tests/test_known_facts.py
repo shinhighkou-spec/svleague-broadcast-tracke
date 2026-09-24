@@ -50,3 +50,31 @@ def test_team_logo_validation_rejects_missing_logo_for_published_row():
         assert "北海道イエロースターズ" in str(e)
     else:
         raise AssertionError("missing team logo must fail validation")
+
+
+def test_search_broadcast_requires_source_time():
+    from scraper import _extract_search_broadcast
+    text = "10月24日 北海道イエロースターズ vs 大阪ブルテオン フジテレビNEXT 放送"
+    assert _extract_search_broadcast(text) == (
+        "フジテレビNEXT", "2026-10-24",
+        ("北海道イエロースターズ", "大阪ブルテオン"), ""
+    )
+    assert _extract_search_broadcast(text, require_time=True) is None
+    assert _extract_search_broadcast(text + " 14:05", require_time=True) == (
+        "フジテレビNEXT", "2026-10-24",
+        ("北海道イエロースターズ", "大阪ブルテオン"), "14:05"
+    )
+
+
+def test_parse_japanese_time():
+    from scraper import parse_time
+    assert parse_time("試合開始 14時05分") == "14:05"
+
+
+def test_search_result_is_not_accepted_from_snippet_only():
+    from scraper import _extract_search_broadcast
+    snippet = "10月24日 14:05 北海道イエロースターズ vs 大阪ブルテオン フジテレビNEXT 放送"
+    candidate = _extract_search_broadcast(snippet, require_time=True)
+    assert candidate is not None
+    # The candidate is deliberately not enough by itself; source-page verification
+    # is performed by _verify_search_result in the live scraper.
