@@ -56,6 +56,14 @@
     "broadcast_time": "12:05"
   },
   {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-10-24",
+    "home": "ウルフドッグス名古屋",
+    "away": "東京グレートベアーズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "16:25"
+  },
+  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-10-24",
     "home": "北海道イエロースターズ",
@@ -72,12 +80,28 @@
     "broadcast_time": "12:05"
   },
   {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-10-25",
+    "home": "ウルフドッグス名古屋",
+    "away": "東京グレートベアーズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "15:25"
+  },
+  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-10-25",
     "home": "北海道イエロースターズ",
     "away": "大阪ブルテオン",
     "source": "known-official-fixture",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:45"
   },
   {
     "station": "フジテレビNEXT",
@@ -92,6 +116,14 @@
     "broadcast_date": "2026-11-01",
     "home": "東レアローズ滋賀",
     "away": "デンソーエアリービーズ",
+    "source": "known-official-fixture",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-11-01",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
     "source": "known-official-fixture",
     "broadcast_time": "13:05"
   },
