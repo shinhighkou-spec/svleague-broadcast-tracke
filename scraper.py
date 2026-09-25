@@ -845,7 +845,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-logo img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 .station-logo.js{background:#fff}.station-logo.js img{width:58px}
 .station-logo.gaora{background:#111;border:1px solid #37424a}.station-logo.gaora img{width:61px}
-.station-logo.fuji{background:#fff}.station-logo.fuji img{width:68px}
+.station-logo.fuji{background:#fff;padding:3px 4px}.station-logo.fuji img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain}.station-logo.fuji.next img{transform:scale(1.08)}
 .station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}
 .station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
 .station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
@@ -958,11 +958,11 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             return '<span class="station-logo gaora"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/GAORA_SPORTS_logo.svg" alt="GAORA SPORTS" loading="lazy"></span>'
         if station == "フジテレビNEXT":
             # Use the channel-specific Fuji TV NEXT Live Premium mark.
-            return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_next.jpg" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy"></span>'
+            return '<span class="station-logo fuji next"><img src="assets/fuji_next.png" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy"></span>'
         if station == "フジテレビONE":
-            return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_one.jpg" alt="フジテレビONE スポーツ・バラエティ" loading="lazy"></span>'
+            return '<span class="station-logo fuji"><img src="assets/fuji_one.png" alt="フジテレビONE スポーツ・バラエティ" loading="lazy"></span>'
         if station == "フジテレビTWO":
-            return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_two.jpg" alt="フジテレビTWO ドラマ・アニメ" loading="lazy"></span>'
+            return '<span class="station-logo fuji"><img src="assets/fuji_two.png" alt="フジテレビTWO ドラマ・アニメ" loading="lazy"></span>'
         if station == "NHK BS":
             return '<span class="station-logo nhk"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/NHK_BS_2023_logo.svg" alt="NHK BS" loading="lazy"></span>'
         return '<span class="station-logo">TV</span>'
