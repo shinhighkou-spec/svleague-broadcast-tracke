@@ -24,6 +24,14 @@
     "broadcast_time": "18:15"
   },
   {
+    "station": "テレビ神奈川",
+    "broadcast_date": "2026-10-17",
+    "home": "NECレッドロケッツ川崎",
+    "away": "ヴィクトリーナ姫路",
+    "source": "known-volleyballking-tvk",
+    "broadcast_time": "18:30"
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-18",
     "home": "大阪マーヴェラス",
