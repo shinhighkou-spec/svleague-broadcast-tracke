@@ -521,6 +521,139 @@ def _verify_search_result(page, title, href, snippet):
         print("SEARCH RESULT VERIFY ERROR:", href, e)
         return None
 
+
+VOLLEYBALLKING_LISTING_URLS = (
+    "https://volleyballking.jp/",
+    "https://volleyballking.jp/league/svleague/",
+    "https://volleyballking.jp/league/svleague/page/2/",
+    "https://volleyballking.jp/league/svleague/page/3/",
+    "https://volleyballking.jp/league/svleague-men/",
+    "https://volleyballking.jp/league/svleague-women/",
+)
+VOLLEYBALLKING_TITLE_TERMS = (
+    "放送", "生中継", "中継", "テレビ", "tvk", "地上波", "BS", "CS",
+    "メディアパートナー", "番組表", "テレビ局",
+)
+
+def _extract_volleyballking_broadcast(text):
+    """Parse explicit broadcast evidence from a VolleyballKing article.
+    Article publication dates are not treated as broadcast dates. The source
+    must state the match date, channel, broadcast start time, and both teams.
+    """
+    text = re.sub(r"\s+", " ", text).strip()
+    if not any(term.casefold() in text.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+        return None
+
+    station = None
+    for st in sorted(VALID_STATIONS, key=len, reverse=True):
+        if st in text:
+            station = st
+            break
+    if not station and re.search(r"\btvk\b", text, re.I):
+        station = "テレビ神奈川"
+    if not station:
+        return None
+
+    match = parse_match(text)
+    if not match:
+        return None
+
+    # Prefer an explicit Japanese month/day in the article body. Do not use
+    # the article's publication timestamp as a broadcast date.
+    d = None
+    for m in re.finditer(r"(?<!\d)(\d{1,2})月(\d{1,2})日", text):
+        month, day = int(m.group(1)), int(m.group(2))
+        candidate = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+        if valid_season_date(candidate):
+            d = candidate
+            break
+    if not d:
+        # Full dates are accepted only when explicitly labelled as a broadcast
+        # date, not when they appear as an article publication date.
+        m = re.search(
+            r"(?:放送日|放送日時|放送予定|放送開始日)[^\d]{0,12}"
+            r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})",
+            text,
+        )
+        if m:
+            candidate = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            if valid_season_date(candidate):
+                d = candidate
+    if not d:
+        return None
+
+    # Extract the broadcast start time, not the match start time.
+    tm = ""
+    m = re.search(r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)", text)
+    if m:
+        tm = f"{int(m.group(1)):02d}:{int(m.group(2)):02d}"
+    if not tm:
+        m = re.search(r"(?:放送開始|放送時間|中継開始)[^\d]{0,12}(\d{1,2}):(\d{2})", text)
+        if m:
+            tm = f"{int(m.group(1)):02d}:{m.group(2)}"
+    if not tm:
+        m = re.search(r"(?:放送|生中継|中継)[^。]{0,35}?(\d{1,2}):(\d{2})\s*(?:～|〜|-)", text)
+        if m:
+            tm = f"{int(m.group(1)):02d}:{m.group(2)}"
+    if not tm:
+        return None
+    return station, d, match, tm
+
+def scrape_volleyballking(page, rows):
+    """Daily direct crawl of VolleyballKing's latest/SV article listings."""
+    article_links = {}
+    listing_successes = 0
+    for url in VOLLEYBALLKING_LISTING_URLS:
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(500)
+            listing_successes += 1
+            links = page.locator('a[href*="/article/"]')
+            for i in range(links.count()):
+                link = links.nth(i)
+                try:
+                    href = link.get_attribute("href") or ""
+                    title = re.sub(r"\s+", " ", link.inner_text(timeout=1500)).strip()
+                    if not href:
+                        continue
+                    if href.startswith("/"):
+                        href = "https://volleyballking.jp" + href
+                    href = href.split("#")[0].split("?")[0]
+                    if "/article/" not in href:
+                        continue
+                    if any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+                        article_links[href] = title
+                except Exception:
+                    continue
+        except Exception as e:
+            print("VOLLEYBALLKING LIST ERROR:", url, e)
+
+    if listing_successes == 0:
+        raise RuntimeError("Could not fetch any VolleyballKing article listing")
+
+    accepted = 0
+    needs_review = 0
+    for href, title in sorted(article_links.items()):
+        try:
+            page.goto(href, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(350)
+            evidence = _page_evidence_text(page)
+            item = _extract_volleyballking_broadcast(title + " " + evidence)
+            if not item:
+                needs_review += 1
+                print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
+                continue
+            station, d, match, tm = item
+            add(rows, station, d, match, href, tm)
+            accepted += 1
+            print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
+        except Exception as e:
+            print("VOLLEYBALLKING ARTICLE ERROR:", href, e)
+    print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
+    print("VOLLEYBALLKING CANDIDATE ARTICLES:", len(article_links))
+    print("VOLLEYBALLKING ACCEPTED:", accepted)
+    print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
+
 def scrape_social_and_regional(page, rows):
     """Daily discovery across team X/Instagram and regional TV sources.
     Search results are candidates only. A result enters the dataset only after
@@ -665,6 +798,8 @@ def known_facts():
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
+        # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
+        Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
     ]
 
 def reconcile(rows):
@@ -1023,6 +1158,10 @@ def main():
             scrape_jcom(page, rows)
         except Exception as e:
             print("J:COM ERROR:", e)
+        try:
+            scrape_volleyballking(page, rows)
+        except Exception as e:
+            print("VOLLEYBALLKING ERROR:", e)
         try:
             scrape_social_and_regional(page, rows)
         except Exception as e:
