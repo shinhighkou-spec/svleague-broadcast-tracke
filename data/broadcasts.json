@@ -160,6 +160,14 @@
     "broadcast_time": "13:05"
   },
   {
+    "station": "NHK BS",
+    "broadcast_date": "2026-11-07",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "14:35"
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-11-08",
     "home": "大阪マーヴェラス",
@@ -176,11 +184,19 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "NHK BS",
+    "broadcast_date": "2026-11-14",
+    "home": "SAGA久光スプリングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-11-26",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100414?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "18:35"
   },
   {
@@ -188,7 +204,95 @@
     "broadcast_date": "2026-11-27",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100414?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "18:35"
+  },
+  {
+    "station": "NHK BS",
+    "broadcast_date": "2026-11-28",
+    "home": "NECレッドロケッツ川崎",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-19",
+    "home": "東レアローズ滋賀",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-20",
+    "home": "東レアローズ滋賀",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-26",
+    "home": "東レアローズ滋賀",
+    "away": "SAGA久光スプリングス",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-27",
+    "home": "東レアローズ滋賀",
+    "away": "SAGA久光スプリングス",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-02",
+    "home": "大阪マーヴェラス",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-03",
+    "home": "大阪マーヴェラス",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "12:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-16",
+    "home": "東レアローズ滋賀",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-17",
+    "home": "東レアローズ滋賀",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-23",
+    "home": "ヴィクトリーナ姫路",
+    "away": "アランマーレ秋田庄内",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2027-01-24",
+    "home": "ヴィクトリーナ姫路",
+    "away": "アランマーレ秋田庄内",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "broadcast_time": "14:05"
   }
 ]
