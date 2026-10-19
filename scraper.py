@@ -841,7 +841,7 @@ def known_facts():
         Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:35","16:25"),
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:35","15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"14:05","13:45"),
-        Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05","13:05"),
+        Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05","12:45"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:35","18:30"),
     ]

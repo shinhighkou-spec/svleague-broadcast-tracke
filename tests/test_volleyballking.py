@@ -95,3 +95,13 @@ def test_preseason_j_sports_row_does_not_invent_match_start_time():
     )
     assert row.broadcast_time == "18:55"
     assert row.match_time == ""
+
+
+def test_j_sports_1101_broadcast_start_precedes_match_start():
+    rows = reconcile([])
+    row = next(
+        r for r in rows
+        if r.station == "J SPORTS 2" and r.broadcast_date == "2026-11-01"
+    )
+    assert row.broadcast_time == "12:45"
+    assert row.match_time == "13:05"
