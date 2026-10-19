@@ -3,8 +3,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from scraper import (
-    Broadcast, VOLLEYBALLKING_LISTING_URLS, _extract_volleyballking_broadcast,
-    _should_inspect_volleyballking_article, reconcile,
+    Broadcast, VOLLEYBALLKING_LISTING_URLS, _extract_typed_times,
+    _extract_volleyballking_broadcast, _should_inspect_volleyballking_article, reconcile,
 )
 
 
@@ -79,3 +79,19 @@ def test_reconcile_merges_broadcast_and_match_times_and_blocks_wrong_bs10_channe
         and r.away == "ジェイテクトSTINGS愛知"
         for r in rows
     )
+
+
+def test_colon_format_broadcast_start_is_distinct_from_match_start():
+    assert _extract_typed_times(
+        "テレビ神奈川で18:30から放送。NECレッドロケッツ川崎 vs ヴィクトリーナ姫路。試合開始は18時35分。"
+    ) == ("18:30", "18:35")
+
+
+def test_preseason_j_sports_row_does_not_invent_match_start_time():
+    rows = reconcile([])
+    row = next(
+        r for r in rows
+        if r.station == "J SPORTS 4" and r.broadcast_date == "2026-09-29"
+    )
+    assert row.broadcast_time == "18:55"
+    assert row.match_time == ""

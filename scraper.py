@@ -525,6 +525,7 @@ def _extract_typed_times(text):
     patterns = (
         r"(?:放送開始(?:時刻)?|放送時間|中継開始(?:時刻)?|中継時間)\s*(?:は|が|[:：])?\s*(\d{1,2})(?::|時)(\d{2})?分?",
         r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)",
+        r"(\d{1,2}):(\d{2})\s*(?:から|より)\s*(?:放送|生中継|中継)",
         r"(?:放送|生中継|中継)[^。]{0,40}?(\d{1,2}):(\d{2})\s*(?:～|〜|－|-)",
     )
     for pattern in patterns:
@@ -834,7 +835,7 @@ def known_facts():
         Broadcast("BS10","2026-11-14","SAGA久光スプリングス","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","13:05"),
         Broadcast("BS10","2026-11-28","NECレッドロケッツ川崎","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","14:05"),
         Broadcast("BS10","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.svleague.jp/news/detail/100609?grade=sv","14:35"),
-        Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"19:05","18:55"),
+        Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"","18:55"),
         Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:35","18:15"),
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:35","15:15"),
         Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:35","16:25"),
