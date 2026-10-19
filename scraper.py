@@ -15,6 +15,7 @@ OFFICIAL_NEWS_INDEX = "https://www.svleague.jp/news/sv/"
 OFFICIAL_NEWS_URLS = [
     "https://www.svleague.jp/news/detail/100302/?grade=sv",
     "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "https://www.svleague.jp/news/detail/100609/?grade=sv",
 ]
 GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
@@ -1084,6 +1085,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
   <button class="filter active" data-filter="all">すべて</button>
   <button class="filter" data-filter="地上波">地上波</button>
   <button class="filter" data-filter="NHK">NHK</button>
+  <button class="filter" data-filter="BS10">BS10</button>
   <button class="filter" data-filter="J SPORTS">J SPORTS</button>
   <button class="filter" data-filter="GAORA">GAORA</button>
   <button class="filter" data-filter="フジテレビ">フジテレビ</button>

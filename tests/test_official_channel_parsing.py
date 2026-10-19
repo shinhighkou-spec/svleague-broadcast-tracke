@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from scraper import _station_from_heading_texts, extract_broadcast_item, reconcile, validate
+from scraper import OFFICIAL_NEWS_URLS, _station_from_heading_texts, extract_broadcast_item, known_facts, reconcile, validate
 
 
 def test_official_channel_is_resolved_from_row_under_combined_headings():
@@ -29,3 +29,8 @@ def test_bs10_official_facts_are_present_and_valid():
     assert ("BS10", "2026-11-28", "NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく") in keys
     assert ("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知") in keys
     assert validate(rows, official_ok=True) == (True, "ok")
+
+
+def test_official_sv_broadcast_article_is_pinned_as_a_source():
+    assert any("detail/100609/" in url for url in OFFICIAL_NEWS_URLS)
+    assert any(row.station == "BS10" and row.broadcast_date == "2026-11-07" for row in known_facts())
