@@ -89,7 +89,7 @@ TEAM_MAP = {
 }
 
 VALID_STATIONS = {
-    "GAORA SPORTS",
+    "GAORA SPORTS", "BS10",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
     "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS",
 }
@@ -228,38 +228,43 @@ def official_article_urls(page):
             print("OFFICIAL INDEX ERROR:", url, e)
     return sorted(urls)
 
+def _station_from_heading_texts(heading_texts):
+    """Resolve a station heading without leaking a previous section's station."""
+    for raw in reversed(heading_texts):
+        txt = re.sub(r"\\s+", " ", raw).strip()
+        if not txt or txt.upper() in {"WOMEN", "MEN"} or txt in {"女子", "男子"}:
+            continue
+        normalized = re.sub(r"\\s+", "", txt).replace("／", "/")
+        if normalized in {"JSPORTS1/2/3/4", "フジテレビONE/TWO/NEXT"}:
+            return None
+        station = clean_station(txt)
+        if station in VALID_STATIONS:
+            return station
+        if any(token in normalized for token in ("JSPORTS", "フジテレビONE", "BS10", "GAORA", "NHKBS")):
+            return None
+    return None
+
 def scrape_official_article(page, rows, url):
     page.goto(url, wait_until="networkidle", timeout=60000)
     page.wait_for_timeout(700)
     body = page.locator("body").inner_text(timeout=10000)
     if not body.strip():
         raise RuntimeError(f"official article returned empty text: {url}")
-
-    # Broadcast tables use the station name as a heading above each table.
-    # Never use the article publication date as a broadcast date.
     tables = page.locator("table")
+    parsed_rows = 0
+    review_rows = 0
     for i in range(tables.count()):
         table = tables.nth(i)
         try:
             row_locator = table.locator("tr")
             if row_locator.count() == 0:
                 continue
-            # Walk backwards through headings in DOM order. This is much safer
-            # than taking arbitrary page text as the broadcaster.
             station = None
             try:
                 headings = table.locator("xpath=preceding::h1 | preceding::h2 | preceding::h3 | preceding::h4")
-                for j in range(headings.count() - 1, -1, -1):
-                    txt = clean_station(headings.nth(j).inner_text())
-                    if txt in VALID_STATIONS:
-                        station = txt
-                        break
-            except Exception:
-                station = None
-
-            if not station:
-                continue
-
+                station = _station_from_heading_texts(headings.all_inner_texts())
+            except Exception as e:
+                print("OFFICIAL HEADING ERROR:", url, e)
             for j in range(row_locator.count()):
                 try:
                     row_text = " ".join(row_locator.nth(j).locator("th,td").all_inner_texts())
@@ -267,10 +272,17 @@ def scrape_official_article(page, rows, url):
                     continue
                 item = extract_broadcast_item(row_text, station)
                 if item:
-                    _, d, match, tm = item
-                    add(rows, station, d, match, url, tm)
+                    row_station, d, match, tm = item
+                    add(rows, row_station, d, match, url, tm)
+                    parsed_rows += 1
+                elif parse_date(row_text) and parse_match(row_text):
+                    review_rows += 1
+                    print("OFFICIAL ROW NEEDS REVIEW:", url, "|", row_text)
         except Exception as e:
             print("OFFICIAL TABLE ERROR:", url, e)
+    print("OFFICIAL ARTICLE ROWS PARSED:", parsed_rows, "|", url)
+    if review_rows:
+        print("OFFICIAL ARTICLE ROWS NEEDS REVIEW:", review_rows, "|", url)
 
 def scrape_official(page, rows):
     urls = official_article_urls(page)
@@ -791,6 +803,9 @@ def known_facts():
         Broadcast("GAORA SPORTS","2026-11-14","ヴィクトリーナ姫路","東レアローズ滋賀",src,"14:05"),
         Broadcast("NHK BS","2026-10-23","デンソーエアリービーズ","SAGA久光スプリングス",src,"19:05"),
         Broadcast("NHK BS","2026-11-01","大阪ブルテオン","ウルフドッグス名古屋",src,"15:05"),
+        Broadcast("BS10","2026-11-14","SAGA久光スプリングス","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","13:05"),
+        Broadcast("BS10","2026-11-28","NECレッドロケッツ川崎","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","14:05"),
+        Broadcast("BS10","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.svleague.jp/news/detail/100609?grade=sv","14:35"),
         Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"18:55"),
         Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:15"),
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
