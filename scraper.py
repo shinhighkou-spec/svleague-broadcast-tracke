@@ -26,6 +26,7 @@ class Broadcast:
     home: str
     away: str
     source: str
+    match_time: str = ""
     broadcast_time: str = ""
 
 TEAM_MAP = {
@@ -184,13 +185,16 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     tm = parse_time(text)
     return stations[0], d, match, tm
 
-def add(rows, station, d, match, source, t=""):
+def add(rows, station, d, match, source, t="", *, match_time="", broadcast_time=""):
+    """Add a row while keeping match start and TV-program start separate."""
     station = clean_station(station)
     if station not in VALID_STATIONS:
         return
     if not d or not valid_season_date(d) or not match:
         return
-    rows.append(Broadcast(station, d, match[0], match[1], source, t))
+    if t and not match_time and not broadcast_time:
+        match_time = t
+    rows.append(Broadcast(station, d, match[0], match[1], source, match_time, broadcast_time))
 
 def official_article_urls(page):
     """Discover official SV.LEAGUE news articles from the official news index.
@@ -273,7 +277,7 @@ def scrape_official_article(page, rows, url):
                 item = extract_broadcast_item(row_text, station)
                 if item:
                     row_station, d, match, tm = item
-                    add(rows, row_station, d, match, url, tm)
+                    add(rows, row_station, d, match, url, match_time=tm)
                     parsed_rows += 1
                 elif parse_date(row_text) and parse_match(row_text):
                     review_rows += 1
@@ -360,7 +364,7 @@ def scrape_jsports_official(page, rows):
                 page.wait_for_timeout(350)
                 body = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=8000))
                 if home in body and away in body and f"({d[5:7]}/{d[8:10]})" in body:
-                    add(rows, f"J SPORTS {ch}", d, (home, away), url, tm)
+                    add(rows, f"J SPORTS {ch}", d, (home, away), url, broadcast_time=tm)
                     break
             except Exception as e:
                 print("J SPORTS CHANNEL ERROR:", url, e)
@@ -383,7 +387,7 @@ def scrape_jcom(page, rows):
         item = extract_broadcast_item(block)
         if item:
             station, d, match, tm = item
-            add(rows, station, d, match, url, tm)
+            add(rows, station, d, match, url, broadcast_time=tm)
 
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
@@ -400,7 +404,7 @@ def scrape_gaora(page, rows):
         item = extract_broadcast_item(block, "GAORA SPORTS")
         if item:
             station, d, match, tm = item
-            add(rows, station, d, match, GAORA, tm)
+            add(rows, station, d, match, GAORA, broadcast_time=tm)
 
     # Weekly pages are intentionally parsed in small blocks only.
     for ymd in ["20261016","20261017","20261021","20261023","20261030","20261106","20261113"]:
@@ -413,7 +417,7 @@ def scrape_gaora(page, rows):
                 item = extract_broadcast_item(block, "GAORA SPORTS")
                 if item:
                     station, d, match, tm = item
-                    add(rows, station, d, match, url, tm)
+                    add(rows, station, d, match, url, broadcast_time=tm)
         except Exception:
             continue
 
@@ -513,9 +517,31 @@ def _page_evidence_text(page):
             pass
     return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
+def _extract_typed_times(text):
+    """Return broadcast-start and match-start times only when the wording labels them."""
+    text = re.sub(r"\s+", " ", text).strip()
+    broadcast_time = ""
+    match_time = ""
+    patterns = (
+        r"(?:放送開始(?:時刻)?|放送時間|中継開始(?:時刻)?|中継時間)\s*(?:は|が|[:：])?\s*(\d{1,2})(?::|時)(\d{2})?分?",
+        r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)",
+        r"(?:放送|生中継|中継)[^。]{0,40}?(\d{1,2}):(\d{2})\s*(?:～|〜|－|-)",
+    )
+    for pattern in patterns:
+        m = re.search(pattern, text)
+        if m:
+            broadcast_time = f"{int(m.group(1)):02d}:{int(m.group(2) or 0):02d}"
+            break
+    m = re.search(
+        r"(?:試合開始(?:時刻)?|試合開始)\s*(?:は|が|[:：])?\s*(\d{1,2})(?::|時)(\d{2})?分?",
+        text,
+    )
+    if m:
+        match_time = f"{int(m.group(1)):02d}:{int(m.group(2) or 0):02d}"
+    return broadcast_time, match_time
+
 def _verify_search_result(page, title, href, snippet):
-    """Open a search result and require the source page itself to confirm the broadcast.
-    Required evidence: station + broadcast date + start time + both teams."""
+    """Open a search result; a snippet alone can never establish a row."""
     candidate = _extract_search_broadcast(" ".join((title, snippet)), require_time=False)
     if not candidate or not href:
         return None
@@ -524,15 +550,16 @@ def _verify_search_result(page, title, href, snippet):
         page.wait_for_timeout(700)
         evidence = _page_evidence_text(page)
         verified = _extract_search_broadcast(evidence, require_time=True)
-        if not verified:
+        if not verified or verified[:3] != candidate[:3]:
             return None
-        if verified[:3] != candidate[:3]:
+        broadcast_time, match_time = _extract_typed_times(evidence)
+        if not broadcast_time and not match_time:
+            print("SEARCH RESULT NEEDS REVIEW (unlabelled time):", href)
             return None
-        return verified
+        return verified[0], verified[1], verified[2], broadcast_time, match_time
     except Exception as e:
         print("SEARCH RESULT VERIFY ERROR:", href, e)
         return None
-
 
 VOLLEYBALLKING_LISTING_URLS = (
     "https://volleyballking.jp/",
@@ -548,14 +575,10 @@ VOLLEYBALLKING_TITLE_TERMS = (
 )
 
 def _extract_volleyballking_broadcast(text):
-    """Parse explicit broadcast evidence from a VolleyballKing article.
-    Article publication dates are not treated as broadcast dates. The source
-    must state the match date, channel, broadcast start time, and both teams.
-    """
+    """Parse explicit broadcast start and optional match start from article text."""
     text = re.sub(r"\s+", " ", text).strip()
     if not any(term.casefold() in text.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
         return None
-
     station = None
     for st in sorted(VALID_STATIONS, key=len, reverse=True):
         if st in text:
@@ -565,13 +588,11 @@ def _extract_volleyballking_broadcast(text):
         station = "テレビ神奈川"
     if not station:
         return None
-
     match = parse_match(text)
     if not match:
         return None
 
-    # Prefer an explicit Japanese month/day in the article body. Do not use
-    # the article's publication timestamp as a broadcast date.
+    # Article publication timestamps are not broadcast dates.
     d = None
     for m in re.finditer(r"(?<!\d)(\d{1,2})月(\d{1,2})日", text):
         month, day = int(m.group(1)), int(m.group(2))
@@ -580,8 +601,6 @@ def _extract_volleyballking_broadcast(text):
             d = candidate
             break
     if not d:
-        # Full dates are accepted only when explicitly labelled as a broadcast
-        # date, not when they appear as an article publication date.
         m = re.search(
             r"(?:放送日|放送日時|放送予定|放送開始日)[^\d]{0,12}"
             r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})",
@@ -594,22 +613,14 @@ def _extract_volleyballking_broadcast(text):
     if not d:
         return None
 
-    # Extract the broadcast start time, not the match start time.
-    tm = ""
-    m = re.search(r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)", text)
-    if m:
-        tm = f"{int(m.group(1)):02d}:{int(m.group(2)):02d}"
-    if not tm:
-        m = re.search(r"(?:放送開始|放送時間|中継開始)[^\d]{0,12}(\d{1,2}):(\d{2})", text)
+    broadcast_time, match_time = _extract_typed_times(text)
+    if not broadcast_time:
+        m = re.search(r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)", text)
         if m:
-            tm = f"{int(m.group(1)):02d}:{m.group(2)}"
-    if not tm:
-        m = re.search(r"(?:放送|生中継|中継)[^。]{0,35}?(\d{1,2}):(\d{2})\s*(?:～|〜|-)", text)
-        if m:
-            tm = f"{int(m.group(1)):02d}:{m.group(2)}"
-    if not tm:
+            broadcast_time = f"{int(m.group(1)):02d}:{int(m.group(2)):02d}"
+    if not broadcast_time:
         return None
-    return station, d, match, tm
+    return station, d, match, broadcast_time, match_time
 
 def scrape_volleyballking(page, rows):
     """Daily direct crawl of VolleyballKing's latest/SV article listings."""
@@ -655,10 +666,10 @@ def scrape_volleyballking(page, rows):
                 needs_review += 1
                 print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
                 continue
-            station, d, match, tm = item
-            add(rows, station, d, match, href, tm)
+            station, d, match, broadcast_time, match_time = item
+            add(rows, station, d, match, href, broadcast_time=broadcast_time, match_time=match_time)
             accepted += 1
-            print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
+            print("VOLLEYBALLKING ACCEPTED:", station, d, "broadcast", broadcast_time, "match", match_time or "unknown", match[0], "vs", match[1], "|", href)
         except Exception as e:
             print("VOLLEYBALLKING ARTICLE ERROR:", href, e)
     print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
@@ -693,12 +704,12 @@ def scrape_social_and_regional(page, rows):
             if not item:
                 continue
             verified_count += 1
-            station, d, match, tm = item
+            station, d, match, broadcast_time, match_time = item
             key = (station, d, match[0], match[1])
             if key in seen:
                 continue
             seen.add(key)
-            add(rows, station, d, match, href, tm)
+            add(rows, station, d, match, href, broadcast_time=broadcast_time, match_time=match_time)
             accepted += 1
 
     def search_and_process(query, error_label):
@@ -806,35 +817,49 @@ def known_facts():
         Broadcast("BS10","2026-11-14","SAGA久光スプリングス","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","13:05"),
         Broadcast("BS10","2026-11-28","NECレッドロケッツ川崎","PFUブルーキャッツ石川かほく","https://www.svleague.jp/news/detail/100609?grade=sv","14:05"),
         Broadcast("BS10","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.svleague.jp/news/detail/100609?grade=sv","14:35"),
-        Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"18:55"),
-        Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:15"),
-        Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
-        Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:25"),
-        Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
-        Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
-        Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
+        Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"19:05","18:55"),
+        Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:35","18:15"),
+        Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:35","15:15"),
+        Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:35","16:25"),
+        Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:35","15:25"),
+        Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"14:05","13:45"),
+        Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05","13:05"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
-        Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
+        Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:35","18:30"),
     ]
 
 def reconcile(rows):
-    # Remove rows previously known to be wrong, then apply authoritative
-    # reconciliation facts. Deduplicate on all four visible columns.
+    # Block known wrong station labels and merge independent sources by visible key.
     banned = {
         ("フジテレビNEXT","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
         ("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
+        ("NHK BS","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知"),
+        ("NHK BS","2026-11-14","SAGA久光スプリングス","PFUブルーキャッツ石川かほく"),
+        ("NHK BS","2026-11-28","NECレッドロケッツ川崎","PFUブルーキャッツ石川かほく"),
         ("GAORA SPORTS","2026-09-18","試合社会貢献・普及コラムメディアすべてJSPORTSバレーボールキング2026","2"),
         ("GAORA SPORTS","2026-10-31","東レアローズ滋賀","デンソーエアリービーズ"),
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
+
+    def merge(existing, incoming):
+        trusted = incoming.source.startswith("known-") or "svleague.jp" in incoming.source
+        source = incoming.source if trusted or not existing.source else existing.source
+        match_time = incoming.match_time if trusted and incoming.match_time else (existing.match_time or incoming.match_time)
+        broadcast_time = incoming.broadcast_time or existing.broadcast_time
+        return Broadcast(
+            incoming.station, incoming.broadcast_date, incoming.home, incoming.away,
+            source, match_time, broadcast_time,
+        )
+
     out = {}
     for r in rows:
         key = (r.station, r.broadcast_date, r.home, r.away)
         if key in banned:
             continue
-        out[key] = r
+        out[key] = merge(out[key], r) if key in out else r
     for r in known_facts():
-        out[(r.station, r.broadcast_date, r.home, r.away)] = r
+        key = (r.station, r.broadcast_date, r.home, r.away)
+        out[key] = merge(out[key], r) if key in out else r
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
 
 def validate(rows, official_ok):
@@ -1000,7 +1025,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
 .station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
 .station-name{font-weight:800;white-space:nowrap}
-.time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
+.time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff;line-height:1.25}.time-kind{display:block;font-size:10px;line-height:1.25;color:#9eabb5;font-weight:700;letter-spacing:0}.time-value{font-size:18px;color:#fff;font-weight:900}
 .team-wrap{display:flex;align-items:center;gap:9px;min-width:0}
 .team-logo{width:44px;height:44px;object-fit:contain;flex:0 0 44px;display:block;filter:none;background:transparent}
 .team{font-weight:800;line-height:1.35}
@@ -1094,6 +1119,16 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
         import html as _html
         return _html.escape(s)
 
+    def time_html(r):
+        parts = []
+        if r.broadcast_time:
+            parts.append(f'<span class="time-kind">放送開始 <strong class="time-value">{esc(r.broadcast_time)}</strong></span>')
+        if r.match_time:
+            parts.append(f'<span class="time-kind">試合開始 <strong class="time-value">{esc(r.match_time)}</strong></span>')
+        if not parts:
+            return '<div class="time">—</div>'
+        return '<div class="time">' + ''.join(parts) + '</div>'
+
     def station_logo(station):
         # Use the actual broadcaster marks rather than CSS-drawn approximations.
         # The files are official broadcaster logos mirrored on Wikimedia Commons.
@@ -1132,7 +1167,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             body.append(
                 f'<div class="broadcast-row" data-station="{esc(r.station)}" data-date="{d}">'
                 f'<div class="station">{station_logo(r.station)}<span class="station-name">{esc(r.station)}</span></div>'
-                f'<div class="time">{esc(r.broadcast_time or "—")}</div>'
+                f'{time_html(r)}'
                 f'<div class="home"><span class="team-wrap">{hlogo_html}<span class="team {hcls}">{esc(r.home)}</span></span></div>'
                 f'<div class="away"><span class="team-wrap">{alogo_html}<span class="team {acls}">{esc(r.away)}</span></span></div>'
                 f'<div class="record-cell"><input class="record-check" type="checkbox" aria-label="録画予約"></div>'
@@ -1141,7 +1176,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
         day_blocks.append(
             f'<div class="day-card" data-date="{d}">'
             f'<div class="day-head"><span class="day-date">{d[5:].replace("-", ".")}</span><span class="day-week">（{weekday}）</span></div>'
-            f'<div class="grid-head"><div>放送局</div><div>試合開始</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
+            f'<div class="grid-head"><div>放送局</div><div>放送開始／試合開始</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
             f'{"".join(body)}</div>'
         )
 
