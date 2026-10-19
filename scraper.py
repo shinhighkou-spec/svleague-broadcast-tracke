@@ -231,10 +231,10 @@ def official_article_urls(page):
 def _station_from_heading_texts(heading_texts):
     """Resolve a station heading without leaking a previous section's station."""
     for raw in reversed(heading_texts):
-        txt = re.sub(r"\\s+", " ", raw).strip()
+        txt = re.sub(r"\s+", " ", raw).strip()
         if not txt or txt.upper() in {"WOMEN", "MEN"} or txt in {"女子", "男子"}:
             continue
-        normalized = re.sub(r"\\s+", "", txt).replace("／", "/")
+        normalized = re.sub(r"\s+", "", txt).replace("／", "/")
         if normalized in {"JSPORTS1/2/3/4", "フジテレビONE/TWO/NEXT"}:
             return None
         station = clean_station(txt)
