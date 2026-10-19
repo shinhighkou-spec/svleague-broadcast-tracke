@@ -2,7 +2,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from scraper import _extract_volleyballking_broadcast, reconcile
+from scraper import (
+    Broadcast, VOLLEYBALLKING_LISTING_URLS, _extract_volleyballking_broadcast,
+    _should_inspect_volleyballking_article, reconcile,
+)
 
 
 def test_volleyballking_article_broadcast_details_are_parsed():
@@ -16,6 +19,7 @@ def test_volleyballking_article_broadcast_details_are_parsed():
         "2026-10-17",
         ("NECレッドロケッツ川崎", "ヴィクトリーナ姫路"),
         "18:30",
+        "18:35",
     )
 
 
@@ -38,4 +42,40 @@ def test_missed_volleyballking_tvk_broadcast_is_in_reconciled_rows():
     ) in keys
     row = next(r for r in rows if r.station == "テレビ神奈川")
     assert row.broadcast_time == "18:30"
+    assert row.match_time == "18:35"
     assert row.source == "known-volleyballking-tvk"
+
+
+def test_real_news_pagination_is_scanned_even_without_tv_in_title():
+    assert "https://volleyballking.jp/news/page/2/" in VOLLEYBALLKING_LISTING_URLS
+    assert "https://volleyballking.jp/news/page/3/" in VOLLEYBALLKING_LISTING_URLS
+    assert _should_inspect_volleyballking_article(
+        "SVリーグ男子 チーム紹介",
+        "https://volleyballking.jp/news/page/2/",
+    )
+    assert not _should_inspect_volleyballking_article(
+        "一般記事",
+        "https://volleyballking.jp/league/svleague/",
+    )
+
+
+def test_reconcile_merges_broadcast_and_match_times_and_blocks_wrong_bs10_channel():
+    rows = reconcile([
+        Broadcast(
+            "J SPORTS 2", "2026-10-17", "NECレッドロケッツ川崎",
+            "ヴィクトリーナ姫路", "j-sports-guide", "", "18:15",
+        ),
+        Broadcast(
+            "NHK BS", "2026-11-07", "ウルフドッグス名古屋",
+            "ジェイテクトSTINGS愛知", "bad-heading", "14:35",
+        ),
+    ])
+    js = next(r for r in rows if r.station == "J SPORTS 2" and r.broadcast_date == "2026-10-17")
+    assert js.broadcast_time == "18:15"
+    assert js.match_time == "18:35"
+    assert not any(
+        r.station == "NHK BS" and r.broadcast_date == "2026-11-07"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "ジェイテクトSTINGS愛知"
+        for r in rows
+    )

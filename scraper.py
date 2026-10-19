@@ -563,6 +563,9 @@ def _verify_search_result(page, title, href, snippet):
 
 VOLLEYBALLKING_LISTING_URLS = (
     "https://volleyballking.jp/",
+    "https://volleyballking.jp/news/",
+    "https://volleyballking.jp/news/page/2/",
+    "https://volleyballking.jp/news/page/3/",
     "https://volleyballking.jp/league/svleague/",
     "https://volleyballking.jp/league/svleague/page/2/",
     "https://volleyballking.jp/league/svleague/page/3/",
@@ -573,6 +576,13 @@ VOLLEYBALLKING_TITLE_TERMS = (
     "放送", "生中継", "中継", "テレビ", "tvk", "地上波", "BS", "CS",
     "メディアパートナー", "番組表", "テレビ局",
 )
+
+def _should_inspect_volleyballking_article(title, listing_url):
+    if any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+        return True
+    # Recent news pagination can include announcements whose title does not
+    # mention television; the article body is checked before logging a candidate.
+    return "/news/" in listing_url
 
 def _extract_volleyballking_broadcast(text):
     """Parse explicit broadcast start and optional match start from article text."""
@@ -628,7 +638,9 @@ def scrape_volleyballking(page, rows):
     listing_successes = 0
     for url in VOLLEYBALLKING_LISTING_URLS:
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            response = page.goto(url, wait_until="domcontentloaded", timeout=45000)
+            if response and response.status >= 400:
+                raise RuntimeError(f"HTTP {response.status}")
             page.wait_for_timeout(500)
             listing_successes += 1
             links = page.locator('a[href*="/article/"]')
@@ -644,7 +656,7 @@ def scrape_volleyballking(page, rows):
                     href = href.split("#")[0].split("?")[0]
                     if "/article/" not in href:
                         continue
-                    if any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+                    if _should_inspect_volleyballking_article(title, url):
                         article_links[href] = title
                 except Exception:
                     continue
@@ -658,10 +670,15 @@ def scrape_volleyballking(page, rows):
     needs_review = 0
     for href, title in sorted(article_links.items()):
         try:
-            page.goto(href, wait_until="domcontentloaded", timeout=45000)
+            response = page.goto(href, wait_until="domcontentloaded", timeout=45000)
+            if response and response.status >= 400:
+                raise RuntimeError(f"HTTP {response.status}")
             page.wait_for_timeout(350)
             evidence = _page_evidence_text(page)
-            item = _extract_volleyballking_broadcast(title + " " + evidence)
+            combined = title + " " + evidence
+            if not any(term.casefold() in combined.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+                continue
+            item = _extract_volleyballking_broadcast(combined)
             if not item:
                 needs_review += 1
                 print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
