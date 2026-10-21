@@ -91,7 +91,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "サンテレビジョン",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
