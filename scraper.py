@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "サンテレビジョン",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "サンテレビジョン",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -982,7 +982,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-logo.js{background:#fff}.station-logo.js img{width:58px}
 .station-logo.gaora{background:#111;border:1px solid #37424a}.station-logo.gaora img{width:61px}
 .station-logo.fuji{background:#fff;padding:2px}.station-logo.fuji img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;transform:none}.station-logo.fuji.next img{transform:none}.station-logo.fuji.next.fallback:after{content:"フジテレビ NEXT";display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:10px;font-weight:900;line-height:1.1;text-align:center;color:#111}
-.station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}
+.station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}.station-logo.regional{font-size:10px;font-weight:900;line-height:1.1;text-align:center;color:#111;overflow-wrap:anywhere;padding:4px}
 .station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
 .station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
 .station-name{font-weight:800;white-space:nowrap}
@@ -1101,7 +1101,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_two.jpg" alt="フジテレビTWO ドラマ・アニメ" loading="lazy"></span>'
         if station == "NHK BS":
             return '<span class="station-logo nhk"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/NHK_BS_2023_logo.svg" alt="NHK BS" loading="lazy"></span>'
-        return '<span class="station-logo">TV</span>'
+        return f'<span class="station-logo regional">{esc(station)}</span>'
 
     day_blocks=[]
     for d, items in sorted(grouped.items()):
