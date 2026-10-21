@@ -15,6 +15,7 @@ OFFICIAL_NEWS_INDEX = "https://www.svleague.jp/news/sv/"
 OFFICIAL_NEWS_URLS = [
     "https://www.svleague.jp/news/detail/100302/?grade=sv",
     "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "https://www.svleague.jp/news/detail/100609/?grade=sv",
 ]
 GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
