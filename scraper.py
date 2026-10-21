@@ -1093,7 +1093,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             return '<span class="station-logo gaora"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/GAORA_SPORTS_logo.svg" alt="GAORA SPORTS" loading="lazy"></span>'
         if station == "フジテレビNEXT":
             # Use the channel-specific Fuji TV NEXT Live Premium mark.
-            return '<span class="station-logo fuji next"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_next.jpg" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'fallback\')"></span>'
+            return '<span class="station-logo fuji next"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_next.jpg" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy" onerror="this.style.display='none';this.parentElement.classList.add('fallback')"></span>'
         if station == "フジテレビONE":
             return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_one.jpg" alt="フジテレビONE スポーツ・バラエティ" loading="lazy"></span>'
         if station == "フジテレビTWO":
