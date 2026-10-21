@@ -823,6 +823,27 @@ def reconcile(rows):
         out[(r.station, r.broadcast_date, r.home, r.away)] = r
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
 
+
+# Required coverage from the official 2026-27 broadcast announcement.
+# Identity keys omit time/source so text changes do not hide missing records.
+REQUIRED_100609 = {
+    ("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+    ("BS10", "2026-11-14", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-11-26", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+    ("GAORA SPORTS", "2026-11-27", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+    ("BS10", "2026-11-28", "NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-19", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-20", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-26", "東レアローズ滋賀", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2026-12-27", "東レアローズ滋賀", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2027-01-02", "大阪マーヴェラス", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-03", "大阪マーヴェラス", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-16", "東レアローズ滋賀", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-17", "東レアローズ滋賀", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-23", "ヴィクトリーナ姫路", "アランマーレ秋田庄内"),
+    ("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内"),
+}
+
 def validate(rows, official_ok):
     if not official_ok:
         return False, "SV.LEAGUE official source could not be safely fetched."
@@ -831,6 +852,10 @@ def validate(rows, official_ok):
     keys = [(r.station,r.broadcast_date,r.home,r.away) for r in rows]
     if len(keys) != len(set(keys)):
         return False, "Duplicate keys detected."
+    present = set(keys)
+    missing_official = sorted(REQUIRED_100609 - present)
+    if missing_official:
+        return False, "Required 100609 official broadcast records missing: " + repr(missing_official)
     for r in rows:
         if not all([r.station, r.broadcast_date, r.home, r.away]):
             return False, f"Malformed row: {r}"
