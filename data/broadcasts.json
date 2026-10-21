@@ -294,5 +294,21 @@
     "away": "アランマーレ秋田庄内",
     "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "サンテレビジョン",
+    "broadcast_date": "2026-10-24",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://bangumi.org/tv_events/AmOqgwD40AM",
+    "broadcast_time": "12:00"
+  },
+  {
+    "station": "サンテレビジョン",
+    "broadcast_date": "2026-10-25",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://bangumi.org/tv_events/AmO6gwD8UAM",
+    "broadcast_time": "12:00"
   }
 ]
