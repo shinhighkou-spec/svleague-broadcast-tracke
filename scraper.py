@@ -774,8 +774,9 @@ def scrape_social_and_regional(page, rows):
 
 
 def known_facts():
-    # Confirmed facts supplied from the official SV.LEAGUE/Fuji table and
-    # GAORA schedule. These are reconciliation invariants, not scraped guesses.
+    # Authoritative facts from SV.LEAGUE official announcements and broadcaster schedules.
+    # An official SV.LEAGUE broadcast announcement is sufficient proof a broadcast exists;
+    # broadcaster-side listings are supplemental only.
     src = "known-official-fixture"
     return [
         Broadcast("フジテレビNEXT","2026-10-24","北海道イエロースターズ","大阪ブルテオン",src,"14:05"),
@@ -799,6 +800,24 @@ def known_facts():
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
+        # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
+        # even when a broadcaster has not yet published its own schedule. Keep them
+        # as durable facts; do not gate them on third-party confirmation.
+        Broadcast("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:35"),
+        Broadcast("BS10", "2026-11-14", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-11-26", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ", "https://www.svleague.jp/news/detail/100609/?grade=sv", "18:35"),
+        Broadcast("GAORA SPORTS", "2026-11-27", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ", "https://www.svleague.jp/news/detail/100609/?grade=sv", "18:35"),
+        Broadcast("BS10", "2026-11-28", "NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("GAORA SPORTS", "2026-12-19", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-20", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-26", "東レアローズ滋賀", "SAGA久光スプリングス", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-27", "東レアローズ滋賀", "SAGA久光スプリングス", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-02", "大阪マーヴェラス", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "12:05"),
+        Broadcast("GAORA SPORTS", "2027-01-03", "大阪マーヴェラス", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "12:05"),
+        Broadcast("GAORA SPORTS", "2027-01-16", "東レアローズ滋賀", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-17", "東レアローズ滋賀", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-23", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
     ]
