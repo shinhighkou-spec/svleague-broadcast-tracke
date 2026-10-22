@@ -56,7 +56,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add data site
           git diff --cached --quiet || git commit -m "Update SV.LEAGUE broadcast schedule"
-          git push || true
+          git push
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

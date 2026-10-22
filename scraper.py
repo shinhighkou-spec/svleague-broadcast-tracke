@@ -15,6 +15,7 @@ OFFICIAL_NEWS_INDEX = "https://www.svleague.jp/news/sv/"
 OFFICIAL_NEWS_URLS = [
     "https://www.svleague.jp/news/detail/100302/?grade=sv",
     "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "https://www.svleague.jp/news/detail/100609/?grade=sv",
 ]
 GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
@@ -91,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "サンテレビジョン",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -99,7 +100,7 @@ TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
 # discovery/matching; the published dataset keeps the canonical SV.LEAGUE names.
 SEARCH_TEAM_ALIASES = {
     "アランマーレ山形": ["アランマーレ山形", "アランマーレ秋田庄内"],
-    "ＫＵＲＯＢＥアクアフェアリーズ": ["ＫＵＲＯＢＥアクアフェリーズ", "ＫＵＲＯＢＥアクアフェリーズ富山"],
+    "ＫＵＲＯＢＥアクアフェアリーズ": ["ＫＵＲＯＢＥアクアフェリーズ", "ＫＵＲＯＢＥアクアフェアリーズ富山"],
     "クインシーズ刈谷": ["クインシーズ刈谷", "アリーザ愛知"],
     "VC長野トライデンツ": ["VC長野トライデンツ", "信州松本トライデンツ"],
 }
@@ -257,18 +258,34 @@ def scrape_official_article(page, rows, url):
             except Exception:
                 station = None
 
+            combined_heading = False
             if not station:
-                continue
+                try:
+                    headings = table.locator("xpath=preceding::h1 | preceding::h2 | preceding::h3 | preceding::h4")
+                    if headings.count():
+                        last_heading = re.sub(r"\\s+", "", headings.nth(headings.count()-1).inner_text())
+                        combined_heading = any(token in last_heading for token in (
+                            "フジテレビONE/TWO/NEXT", "フジテレビONE／TWO／NEXT",
+                            "JSPORTS1/2/3/4", "JSPORTS1／2／3／4"
+                        ))
+                except Exception:
+                    pass
+                if not combined_heading:
+                    continue
 
             for j in range(row_locator.count()):
                 try:
                     row_text = " ".join(row_locator.nth(j).locator("th,td").all_inner_texts())
                 except Exception:
                     continue
-                item = extract_broadcast_item(row_text, station)
+                row_station = next((st for st in sorted(VALID_STATIONS, key=len, reverse=True) if st in row_text), None)
+                station_for_row = row_station or station
+                if not station_for_row:
+                    continue
+                item = extract_broadcast_item(row_text, station_for_row)
                 if item:
-                    _, d, match, tm = item
-                    add(rows, station, d, match, url, tm)
+                    parsed_station, d, match, tm = item
+                    add(rows, parsed_station, d, match, url, tm)
         except Exception as e:
             print("OFFICIAL TABLE ERROR:", url, e)
 
@@ -773,8 +790,9 @@ def scrape_social_and_regional(page, rows):
 
 
 def known_facts():
-    # Confirmed facts supplied from the official SV.LEAGUE/Fuji table and
-    # GAORA schedule. These are reconciliation invariants, not scraped guesses.
+    # Authoritative facts from SV.LEAGUE official announcements and broadcaster schedules.
+    # An official SV.LEAGUE broadcast announcement is sufficient proof a broadcast exists;
+    # broadcaster-side listings are supplemental only.
     src = "known-official-fixture"
     return [
         Broadcast("フジテレビNEXT","2026-10-24","北海道イエロースターズ","大阪ブルテオン",src,"14:05"),
@@ -798,6 +816,24 @@ def known_facts():
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
+        # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
+        # even when a broadcaster has not yet published its own schedule. Keep them
+        # as durable facts; do not gate them on third-party confirmation.
+        Broadcast("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:35"),
+        Broadcast("BS10", "2026-11-14", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-11-26", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ", "https://www.svleague.jp/news/detail/100609/?grade=sv", "18:35"),
+        Broadcast("GAORA SPORTS", "2026-11-27", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ", "https://www.svleague.jp/news/detail/100609/?grade=sv", "18:35"),
+        Broadcast("BS10", "2026-11-28", "NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("GAORA SPORTS", "2026-12-19", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-20", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-26", "東レアローズ滋賀", "SAGA久光スプリングス", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2026-12-27", "東レアローズ滋賀", "SAGA久光スプリングス", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-02", "大阪マーヴェラス", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "12:05"),
+        Broadcast("GAORA SPORTS", "2027-01-03", "大阪マーヴェラス", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "12:05"),
+        Broadcast("GAORA SPORTS", "2027-01-16", "東レアローズ滋賀", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-17", "東レアローズ滋賀", "ヴィクトリーナ姫路", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("GAORA SPORTS", "2027-01-23", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
     ]
@@ -822,6 +858,73 @@ def reconcile(rows):
         out[(r.station, r.broadcast_date, r.home, r.away)] = r
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
 
+
+# Required coverage from the official 2026-27 broadcast announcement.
+# Identity keys omit time/source so text changes do not hide missing records.
+REQUIRED_100609 = {
+    ("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+    ("BS10", "2026-11-14", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-11-26", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+    ("GAORA SPORTS", "2026-11-27", "日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+    ("BS10", "2026-11-28", "NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-19", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-20", "東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-12-26", "東レアローズ滋賀", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2026-12-27", "東レアローズ滋賀", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2027-01-02", "大阪マーヴェラス", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-03", "大阪マーヴェラス", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-16", "東レアローズ滋賀", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-17", "東レアローズ滋賀", "ヴィクトリーナ姫路"),
+    ("GAORA SPORTS", "2027-01-23", "ヴィクトリーナ姫路", "アランマーレ秋田庄内"),
+    ("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内"),
+}
+
+# Remaining entries from the same official article: full-coverage gate.
+REQUIRED_100609 |= {
+    ("NHK BS", "2026-10-23", "デンソーエアリービーズ", "SAGA久光スプリングス"),
+    ("NHK BS", "2026-11-01", "大阪ブルテオン", "ウルフドッグス名古屋"),
+    ("フジテレビNEXT", "2026-10-24", "北海道イエロースターズ", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2026-10-25", "北海道イエロースターズ", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2026-10-31", "大阪ブルテオン", "ウルフドッグス名古屋"),
+    ("フジテレビNEXT", "2026-11-01", "大阪ブルテオン", "ウルフドッグス名古屋"),
+    ("フジテレビTWO", "2026-12-05", "大阪ブルテオン", "ジェイテクトSTINGS愛知"),
+    ("フジテレビNEXT", "2026-12-06", "大阪ブルテオン", "ジェイテクトSTINGS愛知"),
+    ("フジテレビNEXT", "2026-12-26", "東京グレートベアーズ", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2026-12-27", "東京グレートベアーズ", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2027-01-16", "サントリーサンバーズ大阪", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2027-01-17", "サントリーサンバーズ大阪", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2027-02-27", "ジェイテクトSTINGS愛知", "大阪ブルテオン"),
+    ("フジテレビNEXT", "2027-02-28", "ジェイテクトSTINGS愛知", "大阪ブルテオン"),
+    ("GAORA SPORTS", "2026-10-17", "大阪マーヴェラス", "岡山シーガルズ"),
+    ("GAORA SPORTS", "2026-10-18", "大阪マーヴェラス", "岡山シーガルズ"),
+    ("GAORA SPORTS", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく"),
+    ("GAORA SPORTS", "2026-11-01", "東レアローズ滋賀", "デンソーエアリービーズ"),
+    ("GAORA SPORTS", "2026-11-07", "大阪マーヴェラス", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2026-11-08", "大阪マーヴェラス", "SAGA久光スプリングス"),
+    ("GAORA SPORTS", "2026-11-14", "ヴィクトリーナ姫路", "東レアローズ滋賀"),
+    ("J SPORTS 2", "2026-10-17", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"),
+    ("J SPORTS 1", "2026-10-18", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"),
+    ("J SPORTS 1", "2026-11-14", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"),
+    ("J SPORTS 2", "2026-11-15", "SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"),
+    ("J SPORTS 2", "2026-11-21", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+    ("J SPORTS 2", "2026-11-22", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+    ("J SPORTS 3", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城"),
+    ("J SPORTS 3", "2026-11-29", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城"),
+    ("J SPORTS 2", "2026-12-26", "大阪マーヴェラス", "アリーザ愛知"),
+    ("J SPORTS 4", "2026-12-27", "大阪マーヴェラス", "アリーザ愛知"),
+    ("J SPORTS 2", "2026-10-24", "ウルフドッグス名古屋", "東京グレートベアーズ"),
+    ("J SPORTS 2", "2026-10-25", "ウルフドッグス名古屋", "東京グレートベアーズ"),
+    ("J SPORTS 4", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ"),
+    ("J SPORTS 2", "2026-11-01", "フラーゴラッド鹿児島", "北海道イエロースターズ"),
+    ("J SPORTS 2", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+    ("J SPORTS 2", "2026-11-08", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+    ("J SPORTS 3", "2026-12-05", "広島サンダーズ", "サントリーサンバーズ大阪"),
+    ("J SPORTS 2", "2026-12-06", "広島サンダーズ", "サントリーサンバーズ大阪"),
+    ("J SPORTS 2", "2026-12-19", "東京グレートベアーズ", "サントリーサンバーズ大阪"),
+    ("J SPORTS 2", "2026-12-20", "東京グレートベアーズ", "サントリーサンバーズ大阪"),
+}
+
 def validate(rows, official_ok):
     if not official_ok:
         return False, "SV.LEAGUE official source could not be safely fetched."
@@ -830,6 +933,10 @@ def validate(rows, official_ok):
     keys = [(r.station,r.broadcast_date,r.home,r.away) for r in rows]
     if len(keys) != len(set(keys)):
         return False, "Duplicate keys detected."
+    present = set(keys)
+    missing_official = sorted(REQUIRED_100609 - present)
+    if missing_official:
+        return False, "Required 100609 official broadcast records missing: " + repr(missing_official)
     for r in rows:
         if not all([r.station, r.broadcast_date, r.home, r.away]):
             return False, f"Malformed row: {r}"
@@ -980,8 +1087,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-logo img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 .station-logo.js{background:#fff}.station-logo.js img{width:58px}
 .station-logo.gaora{background:#111;border:1px solid #37424a}.station-logo.gaora img{width:61px}
-.station-logo.fuji{background:#fff;padding:0 2px}.station-logo.fuji img{width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;transform:scale(1.38)}.station-logo.fuji.next img{transform:scale(1.58)}
-.station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}
+.station-logo.fuji{background:#fff;padding:2px}.station-logo.fuji img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;transform:none}.station-logo.fuji.next img{transform:none}.station-logo.fuji.next.fallback:after{content:"フジテレビ NEXT";display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:10px;font-weight:900;line-height:1.1;text-align:center;color:#111}
+.station-logo.nhk{background:#fff}.station-logo.nhk img{width:57px}.station-logo.regional{font-size:10px;font-weight:900;line-height:1.1;text-align:center;color:#111;overflow-wrap:anywhere;padding:4px}
 .station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
 .station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
 .station-name{font-weight:800;white-space:nowrap}
@@ -1093,14 +1200,14 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             return '<span class="station-logo gaora"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/GAORA_SPORTS_logo.svg" alt="GAORA SPORTS" loading="lazy"></span>'
         if station == "フジテレビNEXT":
             # Use the channel-specific Fuji TV NEXT Live Premium mark.
-            return '<span class="station-logo fuji next"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_next.jpg" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy"></span>'
+            return '<span class="station-logo fuji next"><img src="assets/fuji_tv_next.svg" alt="フジテレビNEXT ライブ・プレミアム" loading="lazy" onerror="this.style.display=&quot;none&quot;;this.parentElement.classList.add(&quot;fallback&quot;)"></span>'
         if station == "フジテレビONE":
             return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_one.jpg" alt="フジテレビONE スポーツ・バラエティ" loading="lazy"></span>'
         if station == "フジテレビTWO":
             return '<span class="station-logo fuji"><img src="https://www2.myjcom.jp/special/common/channel_logo/fuji_tv_two.jpg" alt="フジテレビTWO ドラマ・アニメ" loading="lazy"></span>'
         if station == "NHK BS":
             return '<span class="station-logo nhk"><img src="https://commons.wikimedia.org/wiki/Special:Redirect/file/NHK_BS_2023_logo.svg" alt="NHK BS" loading="lazy"></span>'
-        return '<span class="station-logo">TV</span>'
+        return f'<span class="station-logo regional">{esc(station)}</span>'
 
     day_blocks=[]
     for d, items in sorted(grouped.items()):
