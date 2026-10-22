@@ -224,6 +224,14 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-14",
+    "home": "SAGA久光スプリングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": "13:05"
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-15",
     "home": "SAGA久光スプリングス",
@@ -274,7 +282,7 @@
   {
     "station": "J SPORTS 3",
     "broadcast_date": "2026-11-28",
-    "home": "KUROBEアクアフェアリーズ富山",
+    "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
     "away": "Astemoリヴァーレ茨城",
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
@@ -282,7 +290,7 @@
   {
     "station": "J SPORTS 3",
     "broadcast_date": "2026-11-29",
-    "home": "KUROBEアクアフェアリーズ富山",
+    "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
     "away": "Astemoリヴァーレ茨城",
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
