@@ -470,5 +470,21 @@
     "away": "サントリーサンバーズ大阪",
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-11-07",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": "14:35"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-11-08",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": "13:35"
   }
 ]
