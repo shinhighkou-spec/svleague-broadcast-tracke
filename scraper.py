@@ -258,18 +258,34 @@ def scrape_official_article(page, rows, url):
             except Exception:
                 station = None
 
+            combined_heading = False
             if not station:
-                continue
+                try:
+                    headings = table.locator("xpath=preceding::h1 | preceding::h2 | preceding::h3 | preceding::h4")
+                    if headings.count():
+                        last_heading = re.sub(r"\\s+", "", headings.nth(headings.count()-1).inner_text())
+                        combined_heading = any(token in last_heading for token in (
+                            "フジテレビONE/TWO/NEXT", "フジテレビONE／TWO／NEXT",
+                            "JSPORTS1/2/3/4", "JSPORTS1／2／3／4"
+                        ))
+                except Exception:
+                    pass
+                if not combined_heading:
+                    continue
 
             for j in range(row_locator.count()):
                 try:
                     row_text = " ".join(row_locator.nth(j).locator("th,td").all_inner_texts())
                 except Exception:
                     continue
-                item = extract_broadcast_item(row_text, station)
+                row_station = next((st for st in sorted(VALID_STATIONS, key=len, reverse=True) if st in row_text), None)
+                station_for_row = row_station or station
+                if not station_for_row:
+                    continue
+                item = extract_broadcast_item(row_text, station_for_row)
                 if item:
-                    _, d, match, tm = item
-                    add(rows, station, d, match, url, tm)
+                    parsed_station, d, match, tm = item
+                    add(rows, parsed_station, d, match, url, tm)
         except Exception as e:
             print("OFFICIAL TABLE ERROR:", url, e)
 
