@@ -48,7 +48,9 @@ jobs:
         run: pytest -q
 
       - name: Collect broadcast data
-        run: python scraper.py
+        # Do not block publication of the last known-good schedule when scraping fails.
+        # scraper.py preserves previous data on validation failure; still deploy that schedule.
+        run: python scraper.py || echo "::warning::Scraper failed; deploying the preserved last known-good schedule."
 
       - name: Commit updated data
         run: |
