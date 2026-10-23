@@ -14,6 +14,18 @@ def test_known_official_facts_present():
     assert ('NHK BS','2026-10-23','デンソーエアリービーズ','SAGA久光スプリングス') in keys
     assert ('NHK BS','2026-11-01','大阪ブルテオン','ウルフドッグス名古屋') in keys
 
+def test_free_bs_tv_broadcasts_are_preserved_without_guessing_channel_or_time():
+    from scraper import known_facts, VALID_STATIONS
+    rows = known_facts()
+    expected = {
+        ("BS無料放送（局名未公表）", "2026-10-17", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"),
+        ("BS無料放送（局名未公表）", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ"),
+    }
+    actual = {(r.station, r.broadcast_date, r.home, r.away) for r in rows}
+    assert expected <= actual
+    assert "BS無料放送（局名未公表）" in VALID_STATIONS
+    assert all(r.broadcast_time == "" for r in rows if r.station == "BS無料放送（局名未公表）")
+
 def test_known_bad_rows_rejected():
     rows=reconcile([
       known_facts()[0].__class__('フジテレビNEXT','2026-09-18','PFUブルーキャッツ石川かほく','SAGA久光スプリングス','x',''),
