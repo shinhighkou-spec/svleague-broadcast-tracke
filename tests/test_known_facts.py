@@ -78,3 +78,40 @@ def test_search_result_is_not_accepted_from_snippet_only():
     assert candidate is not None
     # The candidate is deliberately not enough by itself; source-page verification
     # is performed by _verify_search_result in the live scraper.
+
+
+def test_tv_broadcast_list_excludes_on_demand_only_services():
+    from scraper import VALID_STATIONS
+    assert "群馬テレビ" in VALID_STATIONS
+    assert not any("オンデマンド" in station or "配信" in station for station in VALID_STATIONS)
+
+
+def test_gunma_tv_broadcast_is_preserved_as_known_official_social_post():
+    from scraper import known_facts
+    rows = known_facts()
+    assert any(
+        r.station == "群馬テレビ"
+        and r.broadcast_date == "2026-10-24"
+        and r.home == "群馬グリーンウイングス"
+        and r.away == "アランマーレ秋田庄内"
+        and r.broadcast_time == "13:05"
+        and "x.com/vbm_link/status/2113610880101568860" in r.source
+        for r in rows
+    )
+
+
+def test_published_data_has_no_on_demand_only_entries_and_keeps_gunma_tv():
+    import json
+    data_path = Path(__file__).parents[1] / "data" / "broadcasts.json"
+    rows = json.loads(data_path.read_text(encoding="utf-8"))
+    assert not [
+        r for r in rows
+        if "オンデマンド" in r["station"] or "配信" in r["station"]
+    ]
+    assert any(
+        r["station"] == "群馬テレビ"
+        and r["broadcast_date"] == "2026-10-24"
+        and r["home"] == "群馬グリーンウイングス"
+        and r["away"] == "アランマーレ秋田庄内"
+        for r in rows
+    )
