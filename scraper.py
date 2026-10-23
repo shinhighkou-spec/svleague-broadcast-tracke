@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "サンテレビジョン",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "サンテレビジョン", "J SPORTSオンデマンド", "群馬テレビ",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -836,6 +836,13 @@ def known_facts():
         Broadcast("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
+        # Volleyball Magazine official X fixture graphic (2026-10-24).
+        Broadcast("J SPORTSオンデマンド", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://x.com/vbm_link/status/2113610880101568860", "13:05"),
+        Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://x.com/vbm_link/status/2113610880101568860", "13:05"),
+        Broadcast("J SPORTSオンデマンド", "2026-10-24", "アリーザ愛知", "大阪マーヴェラス", "https://x.com/vbm_link/status/2113610880101568860", "14:05"),
+        Broadcast("J SPORTSオンデマンド", "2026-10-24", "Astemoリヴァーレ茨城", "NECレッドロケッツ川崎", "https://x.com/vbm_link/status/2113610880101568860", "14:05"),
+        Broadcast("J SPORTSオンデマンド", "2026-10-24", "ＫＵＲＯＢＥアクアフェアリーズ富山", "東レアローズ滋賀", "https://x.com/vbm_link/status/2113610880101568860", "14:05"),
+        Broadcast("J SPORTSオンデマンド", "2026-10-24", "岡山シーガルズ", "埼玉上尾メディックス", "https://x.com/vbm_link/status/2113610880101568860", "14:05"),
     ]
 
 def reconcile(rows):
