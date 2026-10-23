@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "サンテレビジョン", "群馬テレビ",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -502,6 +502,18 @@ def _page_evidence_text(page):
         parts.append(page.locator("body").inner_text(timeout=10000))
     except Exception:
         pass
+    # Some X posts expose image descriptions only through alt/ARIA metadata.
+    # Include those in source evidence so accessible schedule-image text is not
+    # discarded before verification.
+    for selector in ('img[alt]', 'img[aria-label]', '[role="img"][aria-label]'):
+        try:
+            loc = page.locator(selector)
+            for i in range(min(loc.count(), 30)):
+                value = loc.nth(i).get_attribute("alt") or loc.nth(i).get_attribute("aria-label")
+                if value:
+                    parts.append(value)
+        except Exception:
+            pass
     for selector in (
         'meta[property="og:title"]',
         'meta[property="og:description"]',
@@ -714,6 +726,14 @@ def scrape_social_and_regional(page, rows):
             search_failures += 1
             print(error_label, query, e)
 
+    # The league account is a first-priority source. Search it explicitly on every
+    # run in addition to the team and regional searches below; a result is only
+    # accepted after the source itself confirms a dated, named TV broadcast.
+    search_and_process(
+        'site:x.com/SVLEAGUE_JP ("放送" OR "テレビ" OR "中継" OR "BS10" OR "GAORA" OR "J SPORTS" OR "フジテレビ" OR "今週の対戦カード")',
+        "OFFICIAL SV.LEAGUE X SEARCH ERROR:",
+    )
+
     for canonical, aliases in team_items:
         team_query = " OR ".join('"' + a + '"' for a in aliases)
         search_and_process(
@@ -811,10 +831,15 @@ def known_facts():
         Broadcast("NHK BS","2026-11-01","大阪ブルテオン","ウルフドッグス名古屋",src,"15:05"),
         Broadcast("J SPORTS 4","2026-09-29","東京グレートベアーズ","ジェイテクトSTINGS愛知",src,"18:55"),
         Broadcast("J SPORTS 2","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"18:15"),
+        # J SPORTS confirms Game 1 also receives a free BS television broadcast,
+        # but the channel name/time is not stated in the announcement. Keep it as
+        # a separate TV-only row instead of guessing the channel or dropping it.
+        Broadcast("BS無料放送（局名未公表）","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","https://www.jsports.co.jp/press_release/page/365/",""),
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
         Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:25"),
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
+        Broadcast("BS無料放送（局名未公表）","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ","https://www.jsports.co.jp/press_release/page/365/",""),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
         # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
         # even when a broadcaster has not yet published its own schedule. Keep them
