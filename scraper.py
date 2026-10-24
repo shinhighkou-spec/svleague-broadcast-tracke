@@ -945,6 +945,19 @@ def reconcile(rows):
         if not r.broadcast_time and "provisional-gunma-tv-home-broadcast" in r.source:
             if any(k[:4] == key4 and existing.broadcast_time for k, existing in out.items()):
                 continue
+        if r.broadcast_time:
+            # An explicit official SV.LEAGUE time is authoritative over a
+            # broadcaster guide's different start time for the same airing.
+            # Keep another time only when its source explicitly identifies a replay.
+            for old_key, old_row in list(out.items()):
+                if old_key[:4] != key4 or old_key[4] == r.broadcast_time:
+                    continue
+                old_source = old_row.source.casefold()
+                new_source = r.source.casefold()
+                old_is_replay = any(tag in old_source for tag in ("replay", "録画", "再放送", "recorded"))
+                new_is_replay = any(tag in new_source for tag in ("replay", "録画", "再放送", "recorded"))
+                if not old_is_replay and not new_is_replay:
+                    del out[old_key]
         out[key4 + (r.broadcast_time,)] = r
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.broadcast_time, r.station, r.home, r.away))
 
