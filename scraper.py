@@ -871,6 +871,17 @@ def known_facts():
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
         # Volleyball Magazine official X fixture graphic (2026-10-24).
         Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://x.com/vbm_link/status/2113610880101568860", "13:05"),
+        # Durable fallback for every remaining explicit TV entry in official announcement 100609.
+        Broadcast("J SPORTS 3", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("J SPORTS 3", "2026-11-29", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("フジテレビTWO", "2026-12-05", "大阪ブルテオン", "ジェイテクトSTINGS愛知", "https://www.svleague.jp/news/detail/100609/?grade=sv", "18:05"),
+        Broadcast("フジテレビNEXT", "2026-12-06", "大阪ブルテオン", "ジェイテクトSTINGS愛知", "https://www.svleague.jp/news/detail/100609/?grade=sv", "15:05"),
+        Broadcast("フジテレビNEXT", "2026-12-26", "東京グレートベアーズ", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("フジテレビNEXT", "2026-12-27", "東京グレートベアーズ", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("フジテレビNEXT", "2027-01-16", "サントリーサンバーズ大阪", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("フジテレビNEXT", "2027-01-17", "サントリーサンバーズ大阪", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "13:05"),
+        Broadcast("フジテレビNEXT", "2027-02-27", "ジェイテクトSTINGS愛知", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
+        Broadcast("フジテレビNEXT", "2027-02-28", "ジェイテクトSTINGS愛知", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
     ]
 
 def reconcile(rows):
