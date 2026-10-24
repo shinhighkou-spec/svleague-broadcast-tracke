@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ", "群馬テレビ（録画再放送）",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -874,6 +874,27 @@ def known_facts():
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
         Broadcast("サンテレビジョン", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
+        # GTV announced that all 18 Gunma home matches will be televised. Until each
+        # broadcast slot is announced, keep a visible placeholder on the match date.
+        Broadcast("群馬テレビ", "2026-10-25", "群馬グリーンウイングス", "アランマーレ秋田庄内", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-11-22", "群馬グリーンウイングス", "アリーザ愛知", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-12-05", "群馬グリーンウイングス", "SAGA久光スプリングス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-12-06", "群馬グリーンウイングス", "SAGA久光スプリングス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-12-26", "群馬グリーンウイングス", "NECレッドロケッツ川崎", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2026-12-27", "群馬グリーンウイングス", "NECレッドロケッツ川崎", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-01-23", "群馬グリーンウイングス", "ＫＵＲＯＢＥアクアフェアリーズ富山", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-01-24", "群馬グリーンウイングス", "ＫＵＲＯＢＥアクアフェアリーズ富山", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-06", "群馬グリーンウイングス", "PFUブルーキャッツ石川かほく", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-07", "群馬グリーンウイングス", "PFUブルーキャッツ石川かほく", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-20", "群馬グリーンウイングス", "Astemoリヴァーレ茨城", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-21", "群馬グリーンウイングス", "Astemoリヴァーレ茨城", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-27", "群馬グリーンウイングス", "埼玉上尾メディックス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-02-28", "群馬グリーンウイングス", "埼玉上尾メディックス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-03-20", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        Broadcast("群馬テレビ", "2027-03-21", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
+        # GTV also lists a 19:00 recorded replay of the Oct 24 home opener.
+        Broadcast("群馬テレビ（録画再放送）", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/program/schedule2.html", "19:00"),
         # Durable fallback for every remaining explicit TV entry in official announcement 100609.
         Broadcast("J SPORTS 3", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         Broadcast("J SPORTS 3", "2026-11-29", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
@@ -1198,7 +1219,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
  </div>
  <div class="summary"><div><h2>放送予定</h2><p>放送日順</p></div><div class="count" id="count"></div></div>
  <section class="schedule" id="schedule">__ROWS__</section>
- <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。</div>
+ <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。__PROVISIONAL_NOTE__</div>
 </main>
 <script>
 const cards=[...document.querySelectorAll('.day-card')];
@@ -1298,6 +1319,10 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
     html = html.replace("__ROWS__", "".join(day_blocks))
     html = html.replace("__DATES__", date_options)
     html = html.replace("__UPDATED__", datetime.now().strftime("%Y.%m.%d %H:%M"))
+    provisional_note = ""
+    if any("provisional-gunma-tv-home-broadcast" in r.source for r in rows):
+        provisional_note = '<br><strong>※ 群馬テレビの「今季ホーム戦18試合を全て放送」発表に基づく仮登録があります。放送日時未発表の試合は試合日を仮置きし、放送枠が確認でき次第更新します。</strong>'
+    html = html.replace("__PROVISIONAL_NOTE__", provisional_note)
     (SITE / "index.html").write_text(html, encoding="utf-8")
 
 def main():
