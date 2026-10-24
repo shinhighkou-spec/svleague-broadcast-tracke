@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ", "群馬テレビ（録画再放送）",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -900,8 +900,7 @@ def known_facts():
         Broadcast("群馬テレビ", "2027-02-28", "群馬グリーンウイングス", "埼玉上尾メディックス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
         Broadcast("群馬テレビ", "2027-03-20", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
         Broadcast("群馬テレビ", "2027-03-21", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        # GTV also lists a 19:00 recorded replay of the Oct 24 home opener.
-        Broadcast("群馬テレビ（録画再放送）", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/program/schedule2.html", "19:00"),
+        # GTV weekly grid lists a 19:00 replay of this matchup, but the text view does not reliably associate it with a date; do not invent one.
         # Durable fallback for every remaining explicit TV entry in official announcement 100609.
         Broadcast("J SPORTS 3", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         Broadcast("J SPORTS 3", "2026-11-29", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
@@ -1334,7 +1333,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
     html = html.replace("__UPDATED__", datetime.now().strftime("%Y.%m.%d %H:%M"))
     provisional_note = ""
     if any("provisional-gunma-tv-home-broadcast" in r.source for r in rows):
-        provisional_note = '<br><strong>※ 群馬テレビの「今季ホーム戦18試合を全て放送」発表に基づく仮登録があります。放送日時未発表の試合は試合日を仮置きし、放送枠が確認でき次第更新します。</strong>'
+        provisional_note = '<br><strong>※ 群馬テレビの「今季ホーム戦18試合を全て放送」発表に基づく仮登録があります。放送日時未発表の試合は試合日を仮置きし、放送枠が確認でき次第更新します。</strong><br><strong>※ 群馬テレビの週間番組表には19:00の録画中継も記載されていますが、放送日を確定できないため日付確定待ちです。</strong>'
     html = html.replace("__PROVISIONAL_NOTE__", provisional_note)
     (SITE / "index.html").write_text(html, encoding="utf-8")
 
