@@ -8,6 +8,14 @@
     "broadcast_time": "18:55"
   },
   {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-10-17",
+    "home": "NECレッドロケッツ川崎",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://www.jsports.co.jp/press_release/page/365/",
+    "broadcast_time": ""
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-17",
     "home": "大阪マーヴェラス",
@@ -60,7 +68,7 @@
     "broadcast_date": "2026-10-24",
     "home": "ヴィクトリーナ姫路",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://bangumi.org/tv_events/AmOqgwD40AM",
+    "source": "previously-confirmed-user-shared-tv-listing",
     "broadcast_time": "12:00"
   },
   {
@@ -96,11 +104,19 @@
     "broadcast_time": "16:25"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-10-25",
+    "home": "群馬グリーンウイングス",
+    "away": "アランマーレ秋田庄内",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "サンテレビジョン",
     "broadcast_date": "2026-10-25",
     "home": "ヴィクトリーナ姫路",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://bangumi.org/tv_events/AmO6gwD8UAM",
+    "source": "previously-confirmed-user-shared-tv-listing",
     "broadcast_time": "12:00"
   },
   {
@@ -126,6 +142,14 @@
     "away": "東京グレートベアーズ",
     "source": "known-official-fixture",
     "broadcast_time": "15:25"
+  },
+  {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://www.jsports.co.jp/press_release/page/365/",
+    "broadcast_time": ""
   },
   {
     "station": "フジテレビNEXT",
@@ -176,6 +200,14 @@
     "broadcast_time": "15:05"
   },
   {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-11-07",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": ""
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-11-07",
     "home": "大阪マーヴェラス",
@@ -188,7 +220,7 @@
     "broadcast_date": "2026-11-07",
     "home": "ウルフドッグス名古屋",
     "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:35"
   },
   {
@@ -196,7 +228,7 @@
     "broadcast_date": "2026-11-07",
     "home": "ウルフドッグス名古屋",
     "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:35"
   },
   {
@@ -212,7 +244,7 @@
     "broadcast_date": "2026-11-08",
     "home": "ウルフドッグス名古屋",
     "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:35"
   },
   {
@@ -220,7 +252,7 @@
     "broadcast_date": "2026-11-14",
     "home": "SAGA久光スプリングス",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -228,7 +260,7 @@
     "broadcast_date": "2026-11-14",
     "home": "SAGA久光スプリングス",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -244,23 +276,47 @@
     "broadcast_date": "2026-11-15",
     "home": "SAGA久光スプリングス",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-11-21",
+    "home": "PFUブルーキャッツ石川かほく",
+    "away": "埼玉上尾メディックス",
+    "source": "https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-11-21",
+    "home": "群馬グリーンウイングス",
+    "away": "アリーザ愛知",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   },
   {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
     "away": "埼玉上尾メディックス",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-11-22",
+    "home": "群馬グリーンウイングス",
+    "away": "アリーザ愛知",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   },
   {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-22",
     "home": "PFUブルーキャッツ石川かほく",
     "away": "埼玉上尾メディックス",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -268,7 +324,7 @@
     "broadcast_date": "2026-11-26",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "18:35"
   },
   {
@@ -276,7 +332,7 @@
     "broadcast_date": "2026-11-27",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "18:35"
   },
   {
@@ -284,7 +340,7 @@
     "broadcast_date": "2026-11-28",
     "home": "NECレッドロケッツ川崎",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
   },
   {
@@ -304,11 +360,19 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-12-05",
+    "home": "群馬グリーンウイングス",
+    "away": "SAGA久光スプリングス",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "J SPORTS 3",
     "broadcast_date": "2026-12-05",
     "home": "広島サンダーズ",
     "away": "サントリーサンバーズ大阪",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:05"
   },
   {
@@ -320,11 +384,19 @@
     "broadcast_time": "18:05"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-12-06",
+    "home": "群馬グリーンウイングス",
+    "away": "SAGA久光スプリングス",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-12-06",
     "home": "広島サンダーズ",
     "away": "サントリーサンバーズ大阪",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:05"
   },
   {
@@ -336,11 +408,19 @@
     "broadcast_time": "15:05"
   },
   {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-12-19",
+    "home": "東京グレートベアーズ",
+    "away": "サントリーサンバーズ大阪",
+    "source": "https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "broadcast_time": ""
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-12-19",
     "home": "東レアローズ滋賀",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -348,7 +428,7 @@
     "broadcast_date": "2026-12-19",
     "home": "東京グレートベアーズ",
     "away": "サントリーサンバーズ大阪",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:05"
   },
   {
@@ -356,7 +436,7 @@
     "broadcast_date": "2026-12-20",
     "home": "東レアローズ滋賀",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -364,15 +444,23 @@
     "broadcast_date": "2026-12-20",
     "home": "東京グレートベアーズ",
     "away": "サントリーサンバーズ大阪",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-12-26",
+    "home": "群馬グリーンウイングス",
+    "away": "NECレッドロケッツ川崎",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   },
   {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-12-26",
     "home": "東レアローズ滋賀",
     "away": "SAGA久光スプリングス",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -380,7 +468,7 @@
     "broadcast_date": "2026-12-26",
     "home": "大阪マーヴェラス",
     "away": "アリーザ愛知",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -392,11 +480,19 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-12-27",
+    "home": "群馬グリーンウイングス",
+    "away": "NECレッドロケッツ川崎",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-12-27",
     "home": "東レアローズ滋賀",
     "away": "SAGA久光スプリングス",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -404,7 +500,7 @@
     "broadcast_date": "2026-12-27",
     "home": "大阪マーヴェラス",
     "away": "アリーザ愛知",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -420,7 +516,7 @@
     "broadcast_date": "2027-01-02",
     "home": "大阪マーヴェラス",
     "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "12:05"
   },
   {
@@ -428,7 +524,7 @@
     "broadcast_date": "2027-01-03",
     "home": "大阪マーヴェラス",
     "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "12:05"
   },
   {
@@ -436,7 +532,7 @@
     "broadcast_date": "2027-01-16",
     "home": "東レアローズ滋賀",
     "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -452,7 +548,7 @@
     "broadcast_date": "2027-01-17",
     "home": "東レアローズ滋賀",
     "away": "ヴィクトリーナ姫路",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "13:05"
   },
   {
@@ -464,20 +560,76 @@
     "broadcast_time": "13:05"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-01-23",
+    "home": "群馬グリーンウイングス",
+    "away": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2027-01-23",
     "home": "ヴィクトリーナ姫路",
     "away": "アランマーレ秋田庄内",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-01-24",
+    "home": "群馬グリーンウイングス",
+    "away": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   },
   {
     "station": "GAORA SPORTS",
     "broadcast_date": "2027-01-24",
     "home": "ヴィクトリーナ姫路",
     "away": "アランマーレ秋田庄内",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
+    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-06",
+    "home": "群馬グリーンウイングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-07",
+    "home": "群馬グリーンウイングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-20",
+    "home": "群馬グリーンウイングス",
+    "away": "Astemoリヴァーレ茨城",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-21",
+    "home": "群馬グリーンウイングス",
+    "away": "Astemoリヴァーレ茨城",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-27",
+    "home": "群馬グリーンウイングス",
+    "away": "埼玉上尾メディックス",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   },
   {
     "station": "フジテレビNEXT",
@@ -488,11 +640,35 @@
     "broadcast_time": "14:05"
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-02-28",
+    "home": "群馬グリーンウイングス",
+    "away": "埼玉上尾メディックス",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2027-02-28",
     "home": "ジェイテクトSTINGS愛知",
     "away": "大阪ブルテオン",
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "14:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-03-20",
+    "home": "群馬グリーンウイングス",
+    "away": "デンソーエアリービーズ",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2027-03-21",
+    "home": "群馬グリーンウイングス",
+    "away": "デンソーエアリービーズ",
+    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
+    "broadcast_time": ""
   }
 ]
