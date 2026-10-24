@@ -2,10 +2,10 @@ name: Update SV.LEAGUE broadcasts
 
 on:
   push:
+    # Avoid self-triggering when this workflow commits generated data/site output.
     paths:
       - "scraper.py"
-      - "data/**"
-      - "site/**"
+      - "requirements.txt"
       - ".github/workflows/update.yml"
   schedule:
     # 06:00 JST = 21:00 UTC on the previous day
@@ -58,6 +58,10 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add data site
           git diff --cached --quiet || git commit -m "Update SV.LEAGUE broadcast schedule"
+          # A source/test commit may land while the scrape is running. Rebase the
+          # generated output commit on the latest main before pushing; never force-push.
+          git fetch origin main
+          git rebase origin/main
           git push
 
       - name: Configure GitHub Pages
