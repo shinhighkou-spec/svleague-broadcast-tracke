@@ -1363,18 +1363,21 @@ def main():
             scrape_social_and_regional(page, rows)
         except Exception as e:
             print("SOCIAL/REGIONAL ERROR:", e)
-        team_logos = scrape_team_logos(page)
+        try:
+            team_logos = scrape_team_logos(page)
+        except Exception as e:
+            # Logos are cosmetic. Keep station/team text and publish the schedule
+            # even when a logo endpoint fails or a team mark is unavailable.
+            print("TEAM LOGO WARNING (non-blocking):", e)
+            team_logos = {}
         browser.close()
 
     rows = reconcile(rows)
     try:
         validate_team_logos(team_logos, rows)
     except Exception as e:
-        print("VALIDATION FAILED:", e)
-        prev = load_previous()
-        if prev:
-            write_outputs(prev, team_logos if "team_logos" in locals() else {})
-        raise SystemExit(2)
+        # Never let missing team logos prevent a confirmed broadcast from being added.
+        print("TEAM LOGO VALIDATION WARNING (non-blocking):", e)
     ok, msg = validate(rows, official_ok)
     if not ok:
         print("VALIDATION FAILED:", msg)
