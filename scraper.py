@@ -663,7 +663,10 @@ def scrape_volleyballking(page, rows):
 
     accepted = 0
     needs_review = 0
-    for href, title in sorted(article_links.items()):
+    # Listing URLs are ordered newest-first. Inspect only the newest 20
+    # relevant articles per daily run; older items are already covered by the
+    # official-news archive and known facts.
+    for href, title in list(article_links.items())[:20]:
         try:
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
