@@ -915,8 +915,7 @@ def known_facts():
     ]
 
 def reconcile(rows):
-    # Remove rows previously known to be wrong, then apply authoritative
-    # reconciliation facts. Deduplicate on all four visible columns.
+    # Preserve distinct broadcasts on the same date/card when their times differ.
     banned = {
         ("フジテレビNEXT","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
         ("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
@@ -925,33 +924,29 @@ def reconcile(rows):
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
     out = {}
-    # Seed from the last published dataset first. A temporary search-engine,
-    # social-network, or broadcaster outage must not silently remove a previously
-    # confirmed TV listing. Explicitly banned corrections above still take effect.
     for r in load_previous():
-        key = (r.station, r.broadcast_date, r.home, r.away)
-        if key not in banned:
-            out[key] = r
+        key4 = (r.station, r.broadcast_date, r.home, r.away)
+        if key4 not in banned:
+            out[key4 + (r.broadcast_time,)] = r
     for r in rows:
-        key = (r.station, r.broadcast_date, r.home, r.away)
-        if key in banned:
+        key4 = (r.station, r.broadcast_date, r.home, r.away)
+        if key4 in banned:
             continue
-        previous = out.get(key)
-        # Keep a previously known time if a source this run only supplies the
-        # date and matchup; never replace a known time with an empty value.
-        if previous and not r.broadcast_time and previous.broadcast_time:
-            r = Broadcast(r.station, r.broadcast_date, r.home, r.away, r.source, previous.broadcast_time)
-        out[key] = r
+        if r.broadcast_time:
+            # Replace only a provisional placeholder once a confirmed airtime appears.
+            for old_key, old_row in list(out.items()):
+                if old_key[:4] == key4 and not old_row.broadcast_time and "provisional-gunma-tv-home-broadcast" in old_row.source:
+                    del out[old_key]
+        out[key4 + (r.broadcast_time,)] = r
     for r in known_facts():
-        key = (r.station, r.broadcast_date, r.home, r.away)
-        existing = out.get(key)
-        # A provisional fact with no time must not overwrite a later confirmed
-        # time scraped from the broadcaster's official schedule.
-        if existing and existing.broadcast_time and not r.broadcast_time:
+        key4 = (r.station, r.broadcast_date, r.home, r.away)
+        if key4 in banned:
             continue
-        out[key] = r
-    return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
-
+        if not r.broadcast_time and "provisional-gunma-tv-home-broadcast" in r.source:
+            if any(k[:4] == key4 and existing.broadcast_time for k, existing in out.items()):
+                continue
+        out[key4 + (r.broadcast_time,)] = r
+    return sorted(out.values(), key=lambda r: (r.broadcast_date, r.broadcast_time, r.station, r.home, r.away))
 
 # Required coverage from the official 2026-27 broadcast announcement.
 # Identity keys omit time/source so text changes do not hide missing records.
@@ -1024,10 +1019,10 @@ def validate(rows, official_ok):
         return False, "SV.LEAGUE official source could not be safely fetched."
     if len(rows) < len(known_facts()):
         return False, f"Abnormally small result set: {len(rows)} rows."
-    keys = [(r.station,r.broadcast_date,r.home,r.away) for r in rows]
+    keys = [(r.station,r.broadcast_date,r.home,r.away,r.broadcast_time) for r in rows]
     if len(keys) != len(set(keys)):
         return False, "Duplicate keys detected."
-    present = set(keys)
+    present = {(r.station,r.broadcast_date,r.home,r.away) for r in rows}
     missing_official = sorted(REQUIRED_100609 - present)
     if missing_official:
         return False, "Required 100609 official broadcast records missing: " + repr(missing_official)
@@ -1130,9 +1125,9 @@ def write_outputs(rows, team_logos=None):
     )
     with (DATA / "broadcasts.csv").open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow(["放送局","放送日","ホームチーム","アウェイチーム"])
+        w.writerow(["放送局","放送日","ホームチーム","アウェイチーム","開始時刻"])
         for r in rows:
-            w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away])
+            w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away, r.broadcast_time])
 
     html = """<!doctype html>
 <html lang="ja">
@@ -1253,7 +1248,7 @@ function apply(){
 }
 buttons.forEach(b=>b.addEventListener('click',()=>{buttons.forEach(x=>x.classList.remove('active'));b.classList.add('active');apply()}));
 const STORAGE_KEY='svleague-recording-reservations-v1';
-function rowKey(row){const t=row.querySelectorAll('.team');return [row.dataset.station,row.dataset.date||'',t[0]?.textContent.trim(),t[1]?.textContent.trim()].join('|')}
+function rowKey(row){const t=row.querySelectorAll('.team');return [row.dataset.station,row.dataset.date||'',t[0]?.textContent.trim(),t[1]?.textContent.trim(),row.querySelector('.time')?.textContent.trim()].join('|')}
 function loadReservations(){
  document.querySelectorAll('.broadcast-row').forEach(row=>{
   const box=row.querySelector('.record-check'); if(!box)return;
