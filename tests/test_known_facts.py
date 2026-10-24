@@ -130,3 +130,18 @@ def test_published_data_has_no_on_demand_only_entries_and_keeps_gunma_tv():
         and r["away"] == "アランマーレ秋田庄内"
         for r in rows
     )
+
+
+def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
+    from scraper import Broadcast, reconcile
+    live = Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "official-live", "13:05")
+    replay = Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "official-replay", "19:00")
+    rows = reconcile([live, replay])
+    matching = {
+        r.broadcast_time for r in rows
+        if r.station == "群馬テレビ"
+        and r.broadcast_date == "2026-10-24"
+        and r.home == "群馬グリーンウイングス"
+        and r.away == "アランマーレ秋田庄内"
+    }
+    assert {"13:05", "19:00"} <= matching
