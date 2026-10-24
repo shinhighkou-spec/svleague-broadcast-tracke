@@ -702,6 +702,7 @@ def scrape_social_and_regional(page, rows):
     verified_count = 0
     accepted = 0
     search_failures = 0
+    search_unavailable = False
 
     def process_results(results, allow_unknown_time=False):
         nonlocal candidate_count, verified_count, accepted
@@ -720,12 +721,18 @@ def scrape_social_and_regional(page, rows):
             accepted += 1
 
     def search_and_process(query, error_label, allow_unknown_time=False):
-        nonlocal search_failures
+        nonlocal search_failures, search_unavailable
+        # Bing retries once inside _bing_results. If it is unavailable, do not
+        # spend the rest of the run repeating hundreds of identical failed calls.
+        if search_unavailable:
+            return
         try:
             process_results(_bing_results(page, query), allow_unknown_time=allow_unknown_time)
         except Exception as e:
             search_failures += 1
+            search_unavailable = True
             print(error_label, query, e)
+            print("SOCIAL/REGIONAL DISCOVERY ABORTED: search engine unavailable after retry; remaining searches skipped.")
 
     # The league account is a first-priority source. Search it explicitly on every
     # run in addition to the team and regional searches below; a result is only
