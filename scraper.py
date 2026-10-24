@@ -937,7 +937,13 @@ def reconcile(rows):
             r = Broadcast(r.station, r.broadcast_date, r.home, r.away, r.source, previous.broadcast_time)
         out[key] = r
     for r in known_facts():
-        out[(r.station, r.broadcast_date, r.home, r.away)] = r
+        key = (r.station, r.broadcast_date, r.home, r.away)
+        existing = out.get(key)
+        # A provisional fact with no time must not overwrite a later confirmed
+        # time scraped from the broadcaster's official schedule.
+        if existing and existing.broadcast_time and not r.broadcast_time:
+            continue
+        out[key] = r
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.station, r.home, r.away))
 
 
