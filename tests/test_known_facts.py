@@ -20,6 +20,9 @@ def test_free_bs_tv_broadcasts_are_preserved_without_guessing_channel_or_time():
     expected = {
         ("BS無料放送（局名未公表）", "2026-10-17", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"),
         ("BS無料放送（局名未公表）", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ"),
+        ("BS無料放送（局名未公表）", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+        ("BS無料放送（局名未公表）", "2026-11-21", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+        ("BS無料放送（局名未公表）", "2026-12-19", "東京グレートベアーズ", "サントリーサンバーズ大阪"),
     }
     actual = {(r.station, r.broadcast_date, r.home, r.away) for r in rows}
     assert expected <= actual
