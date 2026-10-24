@@ -530,9 +530,10 @@ def _page_evidence_text(page):
             pass
     return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
-def _verify_search_result(page, title, href, snippet):
+def _verify_search_result(page, title, href, snippet, require_time=True):
     """Open a search result and require the source page itself to confirm the broadcast.
-    Required evidence: station + broadcast date + start time + both teams."""
+    Official SV.LEAGUE posts may be accepted without a time when their announcement
+    omits it; other discovery sources still require an explicit time."""
     candidate = _extract_search_broadcast(" ".join((title, snippet)), require_time=False)
     if not candidate or not href:
         return None
@@ -540,7 +541,7 @@ def _verify_search_result(page, title, href, snippet):
         page.goto(href, wait_until="domcontentloaded", timeout=30000)
         page.wait_for_timeout(700)
         evidence = _page_evidence_text(page)
-        verified = _extract_search_broadcast(evidence, require_time=True)
+        verified = _extract_search_broadcast(evidence, require_time=require_time)
         if not verified:
             return None
         if verified[:3] != candidate[:3]:
@@ -702,11 +703,11 @@ def scrape_social_and_regional(page, rows):
     accepted = 0
     search_failures = 0
 
-    def process_results(results):
+    def process_results(results, allow_unknown_time=False):
         nonlocal candidate_count, verified_count, accepted
         for title, href, snippet in results:
             candidate_count += 1
-            item = _verify_search_result(page, title, href, snippet)
+            item = _verify_search_result(page, title, href, snippet, require_time=not allow_unknown_time)
             if not item:
                 continue
             verified_count += 1
@@ -718,10 +719,10 @@ def scrape_social_and_regional(page, rows):
             add(rows, station, d, match, href, tm)
             accepted += 1
 
-    def search_and_process(query, error_label):
+    def search_and_process(query, error_label, allow_unknown_time=False):
         nonlocal search_failures
         try:
-            process_results(_bing_results(page, query))
+            process_results(_bing_results(page, query), allow_unknown_time=allow_unknown_time)
         except Exception as e:
             search_failures += 1
             print(error_label, query, e)
@@ -732,6 +733,7 @@ def scrape_social_and_regional(page, rows):
     search_and_process(
         'site:x.com/SVLEAGUE_JP ("放送" OR "テレビ" OR "中継" OR "BS10" OR "GAORA" OR "J SPORTS" OR "フジテレビ" OR "今週の対戦カード")',
         "OFFICIAL SV.LEAGUE X SEARCH ERROR:",
+        allow_unknown_time=True,
     )
 
     for canonical, aliases in team_items:
@@ -840,6 +842,12 @@ def known_facts():
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
         Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
         Broadcast("BS無料放送（局名未公表）","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ","https://www.jsports.co.jp/press_release/page/365/",""),
+        # The SV.LEAGUE article marks these additional Game 1 cards as GOLDEN LIVE;
+        # J SPORTS confirms that Game 1 of every GOLDEN LIVE card receives a free
+        # BS TV broadcast. Channel and BS broadcast time are not yet specified.
+        Broadcast("BS無料放送（局名未公表）","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
+        Broadcast("BS無料放送（局名未公表）","2026-11-21","PFUブルーキャッツ石川かほく","埼玉上尾メディックス","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
+        Broadcast("BS無料放送（局名未公表）","2026-12-19","東京グレートベアーズ","サントリーサンバーズ大阪","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
         # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
         # even when a broadcaster has not yet published its own schedule. Keep them
