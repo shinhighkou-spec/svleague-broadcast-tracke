@@ -895,10 +895,22 @@ def reconcile(rows):
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
     out = {}
+    # Seed from the last published dataset first. A temporary search-engine,
+    # social-network, or broadcaster outage must not silently remove a previously
+    # confirmed TV listing. Explicitly banned corrections above still take effect.
+    for r in load_previous():
+        key = (r.station, r.broadcast_date, r.home, r.away)
+        if key not in banned:
+            out[key] = r
     for r in rows:
         key = (r.station, r.broadcast_date, r.home, r.away)
         if key in banned:
             continue
+        previous = out.get(key)
+        # Keep a previously known time if a source this run only supplies the
+        # date and matchup; never replace a known time with an empty value.
+        if previous and not r.broadcast_time and previous.broadcast_time:
+            r = Broadcast(r.station, r.broadcast_date, r.home, r.away, r.source, previous.broadcast_time)
         out[key] = r
     for r in known_facts():
         out[(r.station, r.broadcast_date, r.home, r.away)] = r
