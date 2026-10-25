@@ -149,7 +149,7 @@ def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
 
 
 def test_jsports_golden_live_tv_parser_keeps_replays_and_excludes_on_demand():
-    from scraper import parse_jsports_golden_live_tv_tv, VALID_STATIONS
+    from scraper import parse_jsports_golden_live_tv, VALID_STATIONS
     text = (
         "生放送11月8日(日)午後1:15～ウルフドッグス名古屋 VS ジェイテクトSTINGS愛知 開催地 エントリオ "
         "録画放送11月7日(土)午後9:00～ウルフドッグス名古屋 VS ジェイテクトSTINGS愛知 開催地 エントリオ "
