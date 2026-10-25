@@ -379,9 +379,9 @@ def parse_jsports_official_section(section: str):
     """Extract dated match candidates from a J SPORTS official TV schedule section."""
     team_pattern = "(?:" + "|".join(re.escape(name) for name in TEAM_NAMES) + ")"
     pattern = re.compile(
-        r"(\\d{1,2})月(\\d{1,2})日(?:（[^）]+）)?.{0,260}?"
+        r"(\d{1,2})月(\d{1,2})日(?:（[^）]+）)?.{0,260}?"
         r"大同生命SVリーグ[^。]{0,180}?"
-        + team_pattern + r"\\s*(?:vs\\.?|VS|対)\\s*" + team_pattern
+        + team_pattern + r"\s*(?:vs\.?|VS|対)\s*" + team_pattern
     )
     out = []
     for m in pattern.finditer(section):
