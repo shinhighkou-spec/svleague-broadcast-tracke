@@ -389,7 +389,7 @@ def scrape_jsports_official(page, rows):
     candidates = []
     for url in urls:
         try:
-            page.goto(url, wait_until="networkidle", timeout=60000)
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(700)
             text = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
             m = re.search(r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", text)
