@@ -145,3 +145,43 @@ def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
         and r.away == "アランマーレ秋田庄内"
     }
     assert {"13:05", "19:00"} <= matching
+
+
+
+def test_jsports_golden_live_tv_parser_keeps_replays_and_excludes_on_demand():
+    from scraper import parse_jsports_golden_live_tv_tv, VALID_STATIONS
+    text = (
+        "生放送11月8日(日)午後1:15～ウルフドッグス名古屋 VS ジェイテクトSTINGS愛知 開催地 エントリオ "
+        "録画放送11月7日(土)午後9:00～ウルフドッグス名古屋 VS ジェイテクトSTINGS愛知 開催地 エントリオ "
+        "録画放送11月22日(日)午後8:45～PFUブルーキャッツ石川かほく VS 埼玉上尾メディックス 開催地 とり野菜みそ BLUECATS ARENA "
+        "ご視聴方法 オンデマンドで見るなら LIVE 11月21日(土)午後0:45～PFUブルーキャッツ石川かほく VS 埼玉上尾メディックス"
+    )
+    events = parse_jsports_golden_live_tv(text)
+    assert ("生放送", "2026-11-08", ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"), "13:15") in events
+    assert ("録画放送", "2026-11-07", ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"), "21:00") in events
+    assert ("録画放送", "2026-11-22", ("PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"), "20:45") in events
+    assert not any("オンデマンド" in str(event) for event in events)
+    assert "J SPORTS（チャンネル未公表）" in VALID_STATIONS
+
+
+def test_known_jsports_replays_are_durable_and_distinct_from_live_broadcasts():
+    from scraper import known_facts
+    rows = known_facts()
+    assert any(
+        r.station == "J SPORTS（チャンネル未公表）"
+        and r.broadcast_date == "2026-11-07"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "ジェイテクトSTINGS愛知"
+        and r.broadcast_time == "21:00"
+        and "録画放送" in r.source
+        for r in rows
+    )
+    assert any(
+        r.station == "J SPORTS（チャンネル未公表）"
+        and r.broadcast_date == "2026-11-22"
+        and r.home == "PFUブルーキャッツ石川かほく"
+        and r.away == "埼玉上尾メディックス"
+        and r.broadcast_time == "20:45"
+        and "録画放送" in r.source
+        for r in rows
+    )
