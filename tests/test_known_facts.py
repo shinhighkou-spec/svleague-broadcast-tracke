@@ -185,3 +185,15 @@ def test_known_jsports_replays_are_durable_and_distinct_from_live_broadcasts():
         and "録画放送" in r.source
         for r in rows
     )
+
+
+
+def test_jsports_official_section_parser_compiles_and_extracts_airing():
+    from scraper import parse_jsports_official_section
+    section = (
+        "10月31日(土) 午後1:45 大同生命SVリーグ 2026-27 "
+        "フラーゴラッド鹿児島 VS 北海道イエロースターズ"
+    )
+    assert parse_jsports_official_section(section) == [
+        ("2026-10-31", ("フラーゴラッド鹿児島", "北海道イエロースターズ"), "13:45")
+    ]
