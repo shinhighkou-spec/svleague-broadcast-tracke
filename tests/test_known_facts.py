@@ -197,3 +197,15 @@ def test_jsports_official_section_parser_compiles_and_extracts_airing():
     assert parse_jsports_official_section(section) == [
         ("2026-10-31", ("フラーゴラッド鹿児島", "北海道イエロースターズ"), "13:45")
     ]
+
+
+
+def test_jsports_official_section_parser_accepts_english_league_label():
+    from scraper import parse_jsports_official_section
+    section = (
+        "11月1日(日) 午後0:45 大同生命SV.LEAGUE 2026-27 "
+        "ウルフドッグス名古屋 VS 東京グレートベアーズ"
+    )
+    assert parse_jsports_official_section(section) == [
+        ("2026-11-01", ("ウルフドッグス名古屋", "東京グレートベアーズ"), "12:45")
+    ]
