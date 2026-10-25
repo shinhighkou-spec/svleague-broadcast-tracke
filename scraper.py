@@ -380,7 +380,7 @@ def parse_jsports_official_section(section: str):
     team_pattern = "(?:" + "|".join(re.escape(name) for name in TEAM_NAMES) + ")"
     pattern = re.compile(
         r"(\d{1,2})月(\d{1,2})日(?:（[^）]+）)?.{0,260}?"
-        r"大同生命SVリーグ[^。]{0,180}?"
+        r"(?:大同生命)?SV(?:\.LEAGUE|リーグ)[^。]{0,180}?"
         + team_pattern + r"\s*(?:vs\.?|VS|対)\s*" + team_pattern
     )
     out = []
@@ -413,6 +413,7 @@ def scrape_jsports_official(page, rows):
             m = re.search(r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", text)
             section = m.group(1) if m else ""
             if not section:
+                print("J SPORTS OFFICIAL SECTION MISSING:", url)
                 continue
             for d, match, tm in parse_jsports_official_section(section):
                 candidates.append((d, match, tm, url))
