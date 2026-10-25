@@ -344,7 +344,7 @@ def scrape_jsports_golden_live(page, rows):
     url = "https://www.jsports.co.jp/volleyball/svleague/golden_live/"
     page.goto(url, wait_until="domcontentloaded", timeout=30000)
     page.wait_for_timeout(900)
-    body = page.locator("body").inner_text(timeout=10000)
+    body = page.locator("body").text_content(timeout=10000) or ""
     events = parse_jsports_golden_live_tv(body)
     facts = known_facts()
     accepted = 0
@@ -375,6 +375,24 @@ def scrape_jsports_golden_live(page, rows):
     print("J SPORTS GOLDEN LIVE TV ADDED:", accepted)
 
 
+def parse_jsports_official_section(section: str):
+    """Extract dated match candidates from a J SPORTS official TV schedule section."""
+    team_pattern = "(?:" + "|".join(re.escape(name) for name in TEAM_NAMES) + ")"
+    pattern = re.compile(
+        r"(\\d{1,2})月(\\d{1,2})日(?:（[^）]+）)?.{0,260}?"
+        r"大同生命SVリーグ[^。]{0,180}?"
+        + team_pattern + r"\\s*(?:vs\\.?|VS|対)\\s*" + team_pattern
+    )
+    out = []
+    for m in pattern.finditer(section):
+        month, day = int(m.group(1)), int(m.group(2))
+        d = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+        match = parse_match(m.group(0))
+        if match and valid_season_date(d):
+            out.append((d, match, parse_jsports_time(m.group(0))))
+    return out
+
+
 def scrape_jsports_official(page, rows):
     """Authoritative supplemental source for J SPORTS TV broadcasts.
     J SPORTS official pages are checked independently of SV.LEAGUE. When a
@@ -396,16 +414,8 @@ def scrape_jsports_official(page, rows):
             section = m.group(1) if m else ""
             if not section:
                 continue
-            for mm in re.finditer(
-                r"(\d{1,2})月(\d{1,2})日(?:（[^）]+）)?(.{0,260}?)(大同生命SVリーグ[^。]{0,180}?"
-                r"((?:東京グレートベアーズ|北海道イエロースターズ|ウルフドッグス名古屋|フラーゴラッド鹿児島|大阪ブルテオン|サントリーサンバーズ大阪|日本製鉄堺ブレイザーズ|広島サンダーズ|信州松本トライデンツ|東レアローズ静岡|ジェイテクトSTINGS愛知|ヴォレアス北海道|NECレッドロケッツ川崎|ヴィクトリーナ姫路|デンソーエアリービーズ|SAGA久光スプリングス|大阪マーヴェラス|岡山シーガルズ|PFUブルーキャッツ石川かほく|東レアローズ滋賀|埼玉上尾メディックス|Astemoリヴァーレ茨城|群馬グリーンウイングス|クインシーズ刈谷|ＫＵＲＯＢＥアクアフェアリーズ|アランマーレ山形)\s*(?:vs\.?|VS|対)\s*(?:東京グレートベアーズ|北海道イエロースターズ|ウルフドッグス名古屋|フラーゴラッド鹿児島|大阪ブルテオン|サントリーサンバーズ大阪|日本製鉄堺ブレイザーズ|広島サンダーズ|信州松本トライデンツ|東レアローズ静岡|ジェイテクトSTINGS愛知|ヴォレアス北海道|NECレッドロケッツ川崎|ヴィクトリーナ姫路|デンソーエアリービーズ|SAGA久光スプリングス|大阪マーヴェラス|岡山シーガルズ|PFUブルーキャッツ石川かほく|東レアローズ滋賀|埼玉上尾メディックス|Astemoリヴァーレ茨城|群馬グリーンウイングス|クインシーズ刈谷|ＫＵＲＯＢＥアクアフェアリーズ|アランマーレ山形))",
-                section,
-            ):
-                month, day = int(mm.group(1)), int(mm.group(2))
-                d = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
-                match = parse_match(mm.group(0))
-                if match:
-                    candidates.append((d, match, parse_jsports_time(mm.group(0)), url))
+            for d, match, tm in parse_jsports_official_section(section):
+                candidates.append((d, match, tm, url))
         except Exception as e:
             print("J SPORTS OFFICIAL ERROR:", url, e)
 
