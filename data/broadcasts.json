@@ -256,14 +256,6 @@
     "broadcast_time": "21:00"
   },
   {
-    "station": "J SPORTS（チャンネル未公表）",
-    "broadcast_date": "2026-11-07",
-    "home": "ウルフドッグス名古屋",
-    "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送",
-    "broadcast_time": "21:00"
-  },
-  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-11-08",
     "home": "大阪マーヴェラス",
@@ -389,14 +381,6 @@
     "home": "PFUブルーキャッツ石川かほく",
     "away": "埼玉上尾メディックス",
     "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261122/",
-    "broadcast_time": "20:45"
-  },
-  {
-    "station": "J SPORTS（チャンネル未公表）",
-    "broadcast_date": "2026-11-22",
-    "home": "PFUブルーキャッツ石川かほく",
-    "away": "埼玉上尾メディックス",
-    "source": "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送",
     "broadcast_time": "20:45"
   },
   {
