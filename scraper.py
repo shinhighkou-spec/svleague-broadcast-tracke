@@ -364,6 +364,14 @@ def scrape_jsports_golden_live(page, rows):
             )
             if channel_known:
                 continue
+        channel_airing_known = any(
+            r.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
+            and r.broadcast_date == d and r.home == home and r.away == away
+            and r.broadcast_time == tm
+            for r in rows + facts
+        )
+        if channel_airing_known:
+            continue
         source = f"{url} | {kind}"
         station = "J SPORTS（チャンネル未公表）"
         if any(
@@ -929,10 +937,6 @@ def known_facts():
         Broadcast("BS無料放送（局名未公表）","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-11-21","PFUブルーキャッツ石川かほく","埼玉上尾メディックス","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-12-19","東京グレートベアーズ","サントリーサンバーズ大阪","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
-        # J SPORTS' official Golden Live page explicitly lists separate recorded TV replays.
-        # The page does not identify the numbered channel, so preserve the airing without guessing.
-        Broadcast("J SPORTS（チャンネル未公表）", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知", "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "21:00"),
-        Broadcast("J SPORTS（チャンネル未公表）", "2026-11-22", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス", "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "20:45"),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
         # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
         # even when a broadcaster has not yet published its own schedule. Keep them
@@ -1037,6 +1041,22 @@ def reconcile(rows):
                 if not old_is_replay and not new_is_replay:
                     del out[old_key]
         out[key4 + (r.broadcast_time,)] = r
+    # If a J SPORTS channel guide confirms the exact same airing time,
+    # replace the earlier channel-unknown placeholder rather than listing it twice.
+    channel_rows = [
+        r for r in out.values()
+        if r.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
+    ]
+    for key, r in list(out.items()):
+        if r.station != "J SPORTS（チャンネル未公表）":
+            continue
+        if any(
+            other.broadcast_date == r.broadcast_date
+            and other.home == r.home and other.away == r.away
+            and other.broadcast_time == r.broadcast_time
+            for other in channel_rows
+        ):
+            del out[key]
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.broadcast_time, r.station, r.home, r.away))
 
 # Required coverage from the official 2026-27 broadcast announcement.
