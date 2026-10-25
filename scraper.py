@@ -1047,6 +1047,7 @@ def reconcile(rows):
         r for r in out.values()
         if r.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
     ]
+    replaced_placeholders = 0
     for key, r in list(out.items()):
         if r.station != "J SPORTS（チャンネル未公表）":
             continue
@@ -1057,6 +1058,8 @@ def reconcile(rows):
             for other in channel_rows
         ):
             del out[key]
+            replaced_placeholders += 1
+    print("J SPORTS UNKNOWN-CHANNEL PLACEHOLDERS REPLACED:", replaced_placeholders)
     return sorted(out.values(), key=lambda r: (r.broadcast_date, r.broadcast_time, r.station, r.home, r.away))
 
 # Required coverage from the official 2026-27 broadcast announcement.
