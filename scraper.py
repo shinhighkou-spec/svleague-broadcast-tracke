@@ -92,7 +92,7 @@ TEAM_MAP = {
 VALID_STATIONS = {
     "GAORA SPORTS",
     "J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4",
-    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "サンテレビジョン", "群馬テレビ",
+    "フジテレビONE", "フジテレビTWO", "フジテレビNEXT", "NHK BS", "BS10", "BS無料放送（局名未公表）", "J SPORTS（チャンネル未公表）", "サンテレビジョン", "群馬テレビ",
 }
 
 TEAM_NAMES = sorted(set(TEAM_MAP.values()), key=len, reverse=True)
@@ -317,6 +317,63 @@ def parse_jsports_time(text: str) -> str:
     if "深夜" in text and hour == 12:
         hour = 0
     return f"{hour:02d}:{minute}"
+
+def parse_jsports_golden_live_tv(text: str):
+    """Parse explicit J SPORTS Golden Live TV airings, including replay times.
+    This parser intentionally excludes LIVE/on-demand-only entries."""
+    text = re.sub(r"\\s+", " ", text).strip()
+    pattern = re.compile(
+        r"(?P<kind>生放送|録画放送)\\s*(?P<month>\\d{1,2})月(?P<day>\\d{1,2})日"
+        r"(?:[（(][^）)]*[）)])?\\s*(?:午前|午後|深夜)\\s*\\d{1,2}:\\d{2}\\s*[～〜~]\\s*"
+        r"(?P<event>.*?)(?=(?:生放送|録画放送)\\s*\\d{1,2}月\\d{1,2}日|ご視聴方法|$)"
+    )
+    events = []
+    for m in pattern.finditer(text):
+        month, day = int(m.group("month")), int(m.group("day"))
+        d = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+        match = parse_match(m.group(0))
+        tm = parse_jsports_time(m.group(0))
+        if match and tm and valid_season_date(d):
+            events.append((m.group("kind"), d, match, tm))
+    return events
+
+
+def scrape_jsports_golden_live(page, rows):
+    """Collect J SPORTS' explicit TV schedule, including distinct recorded replays.
+    Channel is left unspecified when the official page does not identify it."""
+    url = "https://www.jsports.co.jp/volleyball/svleague/golden_live/"
+    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_timeout(900)
+    body = page.locator("body").inner_text(timeout=10000)
+    events = parse_jsports_golden_live_tv(body)
+    facts = known_facts()
+    accepted = 0
+    for kind, d, match, tm in events:
+        home, away = match
+        if kind == "生放送":
+            # The official SV.LEAGUE article already supplies the authoritative
+            # channel/time for known live broadcasts. Do not add a duplicate
+            # generic J SPORTS row for the same airing.
+            channel_known = any(
+                r.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
+                and r.broadcast_date == d and r.home == home and r.away == away
+                for r in rows + facts
+            )
+            if channel_known:
+                continue
+        source = f"{url} | {kind}"
+        station = "J SPORTS（チャンネル未公表）"
+        if any(
+            r.station == station and r.broadcast_date == d
+            and r.home == home and r.away == away and r.broadcast_time == tm
+            for r in rows + facts
+        ):
+            continue
+        add(rows, station, d, match, source, tm)
+        accepted += 1
+    print("J SPORTS GOLDEN LIVE TV EVENTS:", len(events))
+    print("J SPORTS GOLDEN LIVE TV ADDED:", accepted)
+
 
 def scrape_jsports_official(page, rows):
     """Authoritative supplemental source for J SPORTS TV broadcasts.
@@ -1363,6 +1420,10 @@ def main():
             scrape_gaora(page, rows)
         except Exception as e:
             print("GAORA ERROR:", e)
+        try:
+            scrape_jsports_golden_live(page, rows)
+        except Exception as e:
+            print("J SPORTS GOLDEN LIVE ERROR:", e)
         try:
             scrape_jsports_official(page, rows)
         except Exception as e:
