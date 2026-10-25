@@ -164,28 +164,35 @@ def test_jsports_golden_live_tv_parser_keeps_replays_and_excludes_on_demand():
     assert "J SPORTS（チャンネル未公表）" in VALID_STATIONS
 
 
-def test_known_jsports_replays_are_durable_and_distinct_from_live_broadcasts():
-    from scraper import known_facts
-    rows = known_facts()
-    assert any(
+def test_reconcile_removes_unknown_j_sports_placeholder_when_channel_is_confirmed():
+    from scraper import Broadcast, reconcile
+    placeholder = Broadcast(
+        "J SPORTS（チャンネル未公表）", "2026-11-07",
+        "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知",
+        "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "21:00"
+    )
+    channel = Broadcast(
+        "J SPORTS 1", "2026-11-07",
+        "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知",
+        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/", "21:00"
+    )
+    rows = reconcile([placeholder, channel])
+    assert not any(
         r.station == "J SPORTS（チャンネル未公表）"
         and r.broadcast_date == "2026-11-07"
         and r.home == "ウルフドッグス名古屋"
         and r.away == "ジェイテクトSTINGS愛知"
         and r.broadcast_time == "21:00"
-        and "録画放送" in r.source
         for r in rows
     )
     assert any(
-        r.station == "J SPORTS（チャンネル未公表）"
-        and r.broadcast_date == "2026-11-22"
-        and r.home == "PFUブルーキャッツ石川かほく"
-        and r.away == "埼玉上尾メディックス"
-        and r.broadcast_time == "20:45"
-        and "録画放送" in r.source
+        r.station == "J SPORTS 1"
+        and r.broadcast_date == "2026-11-07"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "ジェイテクトSTINGS愛知"
+        and r.broadcast_time == "21:00"
         for r in rows
     )
-
 
 
 def test_jsports_official_section_parser_compiles_and_extracts_airing():
