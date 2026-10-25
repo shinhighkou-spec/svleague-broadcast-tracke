@@ -321,11 +321,11 @@ def parse_jsports_time(text: str) -> str:
 def parse_jsports_golden_live_tv(text: str):
     """Parse explicit J SPORTS Golden Live TV airings, including replay times.
     This parser intentionally excludes LIVE/on-demand-only entries."""
-    text = re.sub(r"\\s+", " ", text).strip()
+    text = re.sub(r"\s+", " ", text).strip()
     pattern = re.compile(
-        r"(?P<kind>生放送|録画放送)\\s*(?P<month>\\d{1,2})月(?P<day>\\d{1,2})日"
-        r"(?:[（(][^）)]*[）)])?\\s*(?:午前|午後|深夜)\\s*\\d{1,2}:\\d{2}\\s*[～〜~]\\s*"
-        r"(?P<event>.*?)(?=(?:生放送|録画放送)\\s*\\d{1,2}月\\d{1,2}日|ご視聴方法|$)"
+        r"(?P<kind>生放送|録画放送)\s*(?P<month>\d{1,2})月(?P<day>\d{1,2})日"
+        r"(?:[（(][^）)]*[）)])?\s*(?:午前|午後|深夜)\s*\d{1,2}:\d{2}\s*[～〜~]\s*"
+        r"(?P<event>.*?)(?=(?:生放送|録画放送)\s*\d{1,2}月\d{1,2}日|ご視聴方法|$)"
     )
     events = []
     for m in pattern.finditer(text):
@@ -915,6 +915,10 @@ def known_facts():
         Broadcast("BS無料放送（局名未公表）","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-11-21","PFUブルーキャッツ石川かほく","埼玉上尾メディックス","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-12-19","東京グレートベアーズ","サントリーサンバーズ大阪","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
+        # J SPORTS' official Golden Live page explicitly lists separate recorded TV replays.
+        # The page does not identify the numbered channel, so preserve the airing without guessing.
+        Broadcast("J SPORTS（チャンネル未公表）", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知", "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "21:00"),
+        Broadcast("J SPORTS（チャンネル未公表）", "2026-11-22", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス", "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "20:45"),
         Broadcast("J SPORTS 2","2026-11-01","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:05"),
         # Official SV.LEAGUE article 100609 is authoritative: these broadcasts are real
         # even when a broadcaster has not yet published its own schedule. Keep them
