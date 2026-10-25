@@ -160,12 +160,28 @@
     "broadcast_time": "12:05"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261031/",
+    "broadcast_time": "13:45"
+  },
+  {
     "station": "J SPORTS 4",
     "broadcast_date": "2026-10-31",
     "home": "フラーゴラッド鹿児島",
     "away": "北海道イエロースターズ",
     "source": "known-official-fixture",
     "broadcast_time": "13:45"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-01",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261101/",
+    "broadcast_time": "12:45"
   },
   {
     "station": "GAORA SPORTS",
@@ -232,6 +248,14 @@
     "broadcast_time": "14:35"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-07",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/",
+    "broadcast_time": "21:00"
+  },
+  {
     "station": "J SPORTS（チャンネル未公表）",
     "broadcast_date": "2026-11-07",
     "home": "ウルフドッグス名古屋",
@@ -248,12 +272,28 @@
     "broadcast_time": "13:05"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-08",
+    "home": "ウルフドッグス名古屋",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261108/",
+    "broadcast_time": "13:15"
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-08",
     "home": "ウルフドッグス名古屋",
     "away": "ジェイテクトSTINGS愛知",
     "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:35"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-14",
+    "home": "SAGA久光スプリングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261114/",
+    "broadcast_time": "12:55"
   },
   {
     "station": "BS10",
@@ -288,6 +328,14 @@
     "broadcast_time": "13:05"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-15",
+    "home": "SAGA久光スプリングス",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261115/",
+    "broadcast_time": "19:00"
+  },
+  {
     "station": "BS無料放送（局名未公表）",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
@@ -304,6 +352,14 @@
     "broadcast_time": ""
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-21",
+    "home": "PFUブルーキャッツ石川かほく",
+    "away": "埼玉上尾メディックス",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261121/",
+    "broadcast_time": "12:45"
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
@@ -326,6 +382,14 @@
     "away": "埼玉上尾メディックス",
     "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-11-22",
+    "home": "PFUブルーキャッツ石川かほく",
+    "away": "埼玉上尾メディックス",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261122/",
+    "broadcast_time": "20:45"
   },
   {
     "station": "J SPORTS（チャンネル未公表）",
