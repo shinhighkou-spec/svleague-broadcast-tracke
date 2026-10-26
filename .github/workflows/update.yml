@@ -2,6 +2,9 @@ name: Update SV.LEAGUE broadcasts
 
 on:
   push:
+    # Only main may publish the public Pages site. Feature branches run tests only.
+    branches:
+      - main
     # Avoid self-triggering when this workflow commits generated data/site output.
     paths:
       - "scraper.py"
