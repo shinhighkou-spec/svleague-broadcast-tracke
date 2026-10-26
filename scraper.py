@@ -131,7 +131,14 @@ def canon_team(s: str) -> str:
 
 def clean_station(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
-    return "GAORA SPORTS" if s == "GAORA" else s
+    aliases = {
+        "GAORA": "GAORA SPORTS",
+        "サンテレビ": "サンテレビジョン",
+        "OHK岡山放送": "岡山放送",
+        "TSCテレビせとうち": "テレビせとうち",
+        "BS12 トゥエルビ": "BS12",
+    }
+    return aliases.get(s, s)
 
 def parse_date(s: str) -> str | None:
     m = re.search(r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})", s)
@@ -185,18 +192,29 @@ def parse_match(s: str):
         return None
     return unique[0], unique[1]
 
+def _recognized_station_names(text: str):
+    """Match longest station labels first so aliases inside them are not double-counted."""
+    matches = []
+    for station in sorted(VALID_STATIONS, key=len, reverse=True):
+        if station not in text:
+            continue
+        if any(station in existing for existing in matches):
+            continue
+        matches.append(station)
+    return list(dict.fromkeys(clean_station(station) for station in matches))
+
+
 def extract_broadcast_item(text: str, station_hint: str | None = None):
     """Strictly parse one DOM item/row. Rejects page-level mixed text."""
     text = re.sub(r"\s+", " ", text).strip()
-    stations = [s for s in VALID_STATIONS if s in text]
+    stations = _recognized_station_names(text)
     if station_hint:
         hint = clean_station(station_hint)
         # Some official SV.LEAGUE tables use a combined heading such as
         # "J SPORTS 1/2/3/4". In that case the actual channel is written
         # in each row, so do not inject the combined heading as a station.
-        if hint in VALID_STATIONS:
+        if hint in VALID_STATIONS and hint not in stations:
             stations.append(hint)
-    stations = list(dict.fromkeys(stations))
     if len(stations) != 1:
         return None
     d = parse_date(text)
@@ -1479,13 +1497,12 @@ def scrape_volleyballmagazine(page, rows):
             page.goto(listing_url, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(300)
             successful_listings += 1
-            links = page.locator('a[href*="/"]')
+            links = page.locator("a[href]")
             for i in range(links.count()):
                 link = links.nth(i)
                 try:
                     href = link.get_attribute("href") or ""
-                    title = re.sub(r"\s+", " ", link.inner_text(timeout=1200)).strip()
-                    if not re.search(r"20\d{2}年\s*\d{1,2}月のバレーボール番組", title):
+                    if not href:
                         continue
                     absolute = urllib.parse.urljoin(listing_url, href)
                     parsed = urllib.parse.urlparse(absolute)
@@ -1494,6 +1511,11 @@ def scrape_volleyballmagazine(page, rows):
                     }:
                         continue
                     if not re.fullmatch(r"/\d+/?", parsed.path):
+                        continue
+                    # Read text only for same-site numeric article URLs, not every
+                    # navigation/footer/social link on the listing page.
+                    title = re.sub(r"\s+", " ", link.inner_text(timeout=400)).strip()
+                    if not re.search(r"20\d{2}年\s*\d{1,2}月のバレーボール番組", title):
                         continue
                     article_url = "https://volleyballmagazine.jp" + parsed.path.rstrip("/") + "/"
                     candidate_articles.setdefault(article_url, title)
@@ -1515,9 +1537,25 @@ def scrape_volleyballmagazine(page, rows):
         match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title)
         return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
 
-    # The newest few month articles provide a bounded historical cross-check
-    # without turning every daily run into a crawl of the entire archive.
-    articles = sorted(candidate_articles.items(), key=month_key, reverse=True)[:3]
+    # Only process monthly articles belonging to the tracked 2026-27 season.
+    # The newest few articles provide a bounded historical cross-check without
+    # crawling the entire archive or fetching out-of-season pages.
+    sorted_articles = sorted(candidate_articles.items(), key=month_key, reverse=True)
+    articles = []
+    for article_url, title in sorted_articles:
+        match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title)
+        if not match:
+            continue
+        year, month = int(match.group(1)), int(match.group(2))
+        if (year == 2026 and 9 <= month <= 12) or (year == 2027 and 1 <= month <= 6):
+            articles.append((article_url, title))
+        if len(articles) == 3:
+            break
+    if not articles:
+        message = "No 2026-27 monthly Volleyball Magazine TV schedule article was found"
+        print("VOLLEYBALLMAGAZINE ARTICLE DISCOVERY INCOMPLETE:", message)
+        flag_source_discovery_degraded(message)
+        return
     parsed_articles = 0
     accepted = 0
     review_articles = 0
@@ -1829,6 +1867,10 @@ KNOWN_VERIFIED_AIRTIME_SOURCES = {
 
 def normalize_time_semantics(row):
     """Migrate legacy rows so only verified programme-start times remain in broadcast_time."""
+    canonical_station = clean_station(row.station)
+    if canonical_station != row.station:
+        row = Broadcast(canonical_station, row.broadcast_date, row.home, row.away,
+                        row.source, row.broadcast_time, row.match_start_time)
     identity = (row.station, row.broadcast_date, row.home, row.away)
     source = row.source or ""
     source_lower = source.casefold()
