@@ -85,8 +85,12 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Mark collection failure after safe deployment
-        if: always() && steps.collect.outcome == 'failure'
+      - name: Mark collection or source-discovery failure after safe deployment
+        if: always() && (steps.collect.outcome == 'failure' || env.SV_SOURCE_DISCOVERY_DEGRADED == 'true')
         run: |
-          echo "Collection failed. The prior known-good schedule was deployed; inspect the Collect broadcast data logs." >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.collect.outcome }}" = "failure" ]; then
+            echo "Collection failed. The prior known-good schedule was restored and deployed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Source discovery was incomplete. Verified rows were deployed, but one or more source searches failed; inspect the collection logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit 1

@@ -1,6 +1,19 @@
 from __future__ import annotations
-import csv, json, re, urllib.parse
+import csv, json, os, re, urllib.parse
 import xml.etree.ElementTree as ET
+
+def flag_source_discovery_degraded(reason):
+    """Surface incomplete optional-source discovery to GitHub Actions without discarding verified rows."""
+    message = re.sub(r"\s+", " ", str(reason)).strip()
+    print("::warning::SOURCE DISCOVERY DEGRADED:", message)
+    env_file = os.environ.get("GITHUB_ENV")
+    if env_file:
+        try:
+            with open(env_file, "a", encoding="utf-8") as handle:
+                handle.write("SV_SOURCE_DISCOVERY_DEGRADED=true\n")
+        except OSError as e:
+            print("SOURCE DISCOVERY STATUS FLAG ERROR:", e)
+
 from dataclasses import dataclass, asdict
 from datetime import date, datetime
 from pathlib import Path
@@ -1146,6 +1159,7 @@ def scrape_social_and_regional(page, rows):
             search_unavailable = True
             print(error_label, query, e)
             print("SOCIAL/REGIONAL DISCOVERY ABORTED: search engine unavailable after retry; remaining searches skipped.")
+            flag_source_discovery_degraded(f"Search engine unavailable; remaining social/regional searches skipped: {error_label} {query}")
 
     # The league account is a first-priority source. Search it explicitly on every
     # run in addition to the team and regional searches below; a result is only
@@ -1788,34 +1802,42 @@ def main():
             official_ok = True
         except Exception as e:
             print("OFFICIAL ERROR:", e)
+            flag_source_discovery_degraded(f"SV.LEAGUE official source failed: {e}")
         try:
             scrape_gaora(page, rows)
         except Exception as e:
             print("GAORA ERROR:", e)
+            flag_source_discovery_degraded(f"GAORA source failed: {e}")
         try:
             scrape_jsports_golden_live(page, rows)
         except Exception as e:
             print("J SPORTS GOLDEN LIVE ERROR:", e)
+            flag_source_discovery_degraded(f"J SPORTS GOLDEN LIVE source failed: {e}")
         try:
             scrape_jsports_official(page, rows)
         except Exception as e:
             print("J SPORTS ERROR:", e)
+            flag_source_discovery_degraded(f"J SPORTS source failed: {e}")
         try:
             scrape_jcom(page, rows)
         except Exception as e:
             print("J:COM ERROR:", e)
+            flag_source_discovery_degraded(f"J:COM source failed: {e}")
         try:
             scrape_volleyballking(page, rows)
         except Exception as e:
             print("VOLLEYBALLKING ERROR:", e)
+            flag_source_discovery_degraded(f"VolleyballKing crawl failed: {e}")
         try:
             scrape_gunma_tv(page, rows)
         except Exception as e:
             print("GUNMA TV ERROR:", e)
+            flag_source_discovery_degraded(f"Gunma TV timetable failed: {e}")
         try:
             scrape_social_and_regional(page, rows)
         except Exception as e:
             print("SOCIAL/REGIONAL ERROR:", e)
+            flag_source_discovery_degraded(f"Social/regional discovery failed: {e}")
         try:
             team_logos = scrape_team_logos(page)
         except Exception as e:

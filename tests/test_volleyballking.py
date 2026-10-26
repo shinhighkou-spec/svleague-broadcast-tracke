@@ -150,3 +150,12 @@ def test_volleyballking_child_sitemaps_without_lastmod_are_not_dropped():
         set(),
     )
     assert target["https://volleyballking.jp/post-sitemap-2026-10.xml"] == "2026-10-26"
+
+
+def test_source_discovery_degradation_is_exposed_to_github_actions(monkeypatch, tmp_path):
+    env_file = tmp_path / "github_env"
+    monkeypatch.setenv("GITHUB_ENV", str(env_file))
+    scraper.flag_source_discovery_degraded("Bing unavailable")
+    assert env_file.read_text(encoding="utf-8").splitlines() == [
+        "SV_SOURCE_DISCOVERY_DEGRADED=true"
+    ]
