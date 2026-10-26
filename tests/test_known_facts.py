@@ -75,7 +75,8 @@ def test_search_broadcast_requires_source_time():
         ("北海道イエロースターズ", "大阪ブルテオン"), ""
     )
     assert _extract_search_broadcast(text, require_time=True) is None
-    assert _extract_search_broadcast(text + " 14:05", require_time=True) == (
+    assert _extract_search_broadcast(text + " 試合開始 14:05", require_time=True) is None
+    assert _extract_search_broadcast(text + " 放送開始 14:05", require_time=True) == (
         "フジテレビNEXT", "2026-10-24",
         ("北海道イエロースターズ", "大阪ブルテオン"), "14:05"
     )
@@ -88,7 +89,7 @@ def test_parse_japanese_time():
 
 def test_search_result_is_not_accepted_from_snippet_only():
     from scraper import _extract_search_broadcast
-    snippet = "10月24日 14:05 北海道イエロースターズ vs 大阪ブルテオン フジテレビNEXT 放送"
+    snippet = "10月24日 北海道イエロースターズ vs 大阪ブルテオン フジテレビNEXT 放送開始 14:05"
     candidate = _extract_search_broadcast(snippet, require_time=True)
     assert candidate is not None
     # The candidate is deliberately not enough by itself; source-page verification
@@ -110,6 +111,7 @@ def test_gunma_tv_broadcast_uses_official_airtime_and_keeps_social_confirmation(
         and r.home == "群馬グリーンウイングス"
         and r.away == "アランマーレ秋田庄内"
         and r.broadcast_time == "13:00"
+        and r.match_start_time == "13:05"
         and "www.gtv.co.jp/timetable/" in r.source
         and "x.com/vbm_link/status/2113610880101568860" in r.source
         for r in rows
@@ -239,3 +241,83 @@ def test_gunma_tv_parser_does_not_infer_airtime_from_match_start_alone():
         "試合開始13:05"
     )
     assert _parse_gunma_tv_schedule(text) == []
+
+
+def test_search_parser_does_not_use_article_publication_date_as_broadcast_date():
+    from scraper import _extract_search_broadcast
+    text = (
+        "2026.10.17 14:35 SVリーグ戦のテレビ放送追加情報。"
+        "BS10では11月14日（土）SAGA久光スプリングス vs "
+        "PFUブルーキャッツ石川かほくを放送。放送開始12:55。"
+    )
+    assert _extract_search_broadcast(text, require_time=True) == (
+        "BS10", "2026-11-14",
+        ("SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"), "12:55"
+    )
+
+
+def test_official_match_start_is_migrated_out_of_broadcast_time():
+    from scraper import Broadcast, normalize_time_semantics
+    row = Broadcast(
+        "BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知",
+        "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:35"
+    )
+    normalized = normalize_time_semantics(row)
+    assert normalized.broadcast_time == ""
+    assert normalized.match_start_time == "14:35"
+
+
+def test_broadcaster_airtime_and_official_match_start_are_kept_separate():
+    from scraper import Broadcast, reconcile
+    identity = ("BS10", "2026-11-07", "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知")
+    official = Broadcast(*identity, "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:35")
+    broadcaster = Broadcast(*identity, "https://www.bs10.jp/program/", "14:15")
+    rows = reconcile([official, broadcaster])
+    match = [r for r in rows if (r.station, r.broadcast_date, r.home, r.away) == identity]
+    assert len(match) == 1
+    assert match[0].broadcast_time == "14:15"
+    assert match[0].match_start_time == "14:35"
+
+
+def test_public_schedule_never_displays_match_start_as_broadcast_start(monkeypatch, tmp_path):
+    import scraper
+    from scraper import Broadcast
+    data_dir = tmp_path / "data"
+    site_dir = tmp_path / "site"
+    data_dir.mkdir()
+    site_dir.mkdir()
+    monkeypatch.setattr(scraper, "DATA", data_dir)
+    monkeypatch.setattr(scraper, "SITE", site_dir)
+    scraper.write_outputs([
+        Broadcast("BS10", "2026-11-07", "ウルフドッグス名古屋",
+                  "ジェイテクトSTINGS愛知", "test-source", "", "14:35")
+    ], {})
+    html = (site_dir / "index.html").read_text(encoding="utf-8")
+    assert '<div class="time">—</div>' in html
+    assert '<div class="time">14:35</div>' not in html
+
+
+def test_duckduckgo_result_parser_resolves_redirect_and_keeps_snippet():
+    from scraper import _parse_duckduckgo_results
+    html = """
+    <div id="links">
+      <div class="result">
+        <h2 class="result__title"><a class="result__a"
+          href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fvolleyballking.jp%2Farticle%2F93961%2F&amp;rut=abc">
+          SVリーグ戦のテレビ放送追加情報</a></h2>
+        <a class="result__snippet">BS10の放送カードが追加</a>
+      </div>
+    </div>"""
+    assert _parse_duckduckgo_results(html) == [
+        ("SVリーグ戦のテレビ放送追加情報",
+         "https://volleyballking.jp/article/93961/",
+         "BS10の放送カードが追加")
+    ]
+
+
+def test_duckduckgo_result_parser_does_not_treat_unrecognized_markup_as_empty_results():
+    from scraper import _parse_duckduckgo_results
+    import pytest
+    with pytest.raises(RuntimeError, match="no recognizable result blocks"):
+        _parse_duckduckgo_results("<html><body>temporarily blocked</body></html>")
+
