@@ -1098,13 +1098,21 @@ def _parse_gunma_tv_schedule(text):
 def scrape_gunma_tv(page, rows):
     """Directly read Gunma TV's official monthly timetable; search snippets are not used."""
     page.goto(GUNMA_TV_URL, wait_until="domcontentloaded", timeout=45000)
-    page.wait_for_timeout(500)
+    # The monthly timetable is rendered asynchronously on some runs. Wait for
+    # the team name before reading the body instead of treating an early,
+    # incomplete DOM as an empty schedule.
+    try:
+        page.locator("text=群馬グリーンウイングス").first.wait_for(timeout=10000)
+    except Exception as e:
+        print("GUNMA TV CONTENT WAIT WARNING:", e)
+    page.wait_for_timeout(300)
     body = page.locator("body").inner_text(timeout=10000)
     if not body.strip():
-        raise RuntimeError("Gunma TV timetable returned empty text")
+        raise RuntimeError(f"Gunma TV timetable returned empty text at {page.url}")
     parsed = _parse_gunma_tv_schedule(body)
     if not parsed:
-        raise RuntimeError("Gunma TV timetable loaded, but no dated matchup with an explicit broadcast-start time could be parsed")
+        print("GUNMA TV PAGE TEXT DIAGNOSTIC:", repr(body[:700]))
+        raise RuntimeError(f"Gunma TV timetable loaded, but no dated matchup with an explicit broadcast-start time could be parsed at {page.url}")
     for broadcast_date, match, airtime in parsed:
         add(rows, "群馬テレビ", broadcast_date, match, GUNMA_TV_URL, airtime)
         print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", GUNMA_TV_URL)
@@ -1329,7 +1337,7 @@ def known_facts():
         Broadcast("GAORA SPORTS", "2027-01-24", "ヴィクトリーナ姫路", "アランマーレ秋田庄内", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
-        # Volleyball Magazine official X fixture graphic (2026-10-24).
+        # Official Gunma TV timetable gives 13:00 airing; Volleyball Magazine X fixture graphic gives the 13:05 match start (2026-10-24).
         Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860", "13:00"),
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
