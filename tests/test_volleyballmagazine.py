@@ -140,3 +140,19 @@ def test_distinct_tv_stations_in_one_block_remain_ambiguous():
         "サンテレビジョン J SPORTS 2"
     )
     assert item is None
+
+
+def test_reconcile_merges_legacy_and_canonical_station_aliases():
+    legacy = Broadcast(
+        "サンテレビ", "2026-10-24", "岡山シーガルズ",
+        "NECレッドロケッツ川崎", "https://example.com/legacy", "13:00"
+    )
+    canonical = Broadcast(
+        "サンテレビジョン", "2026-10-24", "岡山シーガルズ",
+        "NECレッドロケッツ川崎", "https://example.com/canonical", "13:00"
+    )
+    rows = reconcile([legacy, canonical])
+    matching = [row for row in rows if (
+        row.station, row.broadcast_date, row.home, row.away
+    ) == ("サンテレビジョン", "2026-10-24", "岡山シーガルズ", "NECレッドロケッツ川崎")]
+    assert len(matching) == 1
