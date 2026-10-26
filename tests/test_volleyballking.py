@@ -125,7 +125,7 @@ def test_public_schedule_labels_broadcast_start_time_not_match_start(monkeypatch
     html = (site_dir / "index.html").read_text(encoding="utf-8")
     assert "<div>放送開始</div>" in html
     assert "<div>試合開始</div>" not in html
-    assert "放送開始時刻" in html
+    assert "放送開始時刻とは別管理" in html
     assert '<div class="time">14:35</div>' in html
 
 
