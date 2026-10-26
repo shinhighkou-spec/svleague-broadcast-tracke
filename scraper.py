@@ -1602,7 +1602,7 @@ def _parse_gunma_tv_airtime(text):
     """Parse an explicitly labeled broadcast-start time from Gunma TV's timetable."""
     m = re.search(
         r"(午前|午後)?\s*(\d{1,2})(?::(\d{2})|時(?:(\d{1,2})分?)?)"
-        r"(?:\s*(?:～|〜|~|−|-|から|より)\s*(?:(?:午前|午後)\s*)?\d{1,2}(?::\d{2}|時(?:(?:\d{1,2})分?)?)?)?"
+        r"(?:\s*(?:～|〜|~|−|-|から|より)(?:\s*(?:(?:午前|午後)\s*)?\d{1,2}(?::\d{2}|時(?:(?:\d{1,2})分?)?)?)?)?"
         r"\s*(?:生中継|中継|放送)",
         text,
     )
