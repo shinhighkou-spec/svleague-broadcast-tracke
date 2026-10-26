@@ -8,6 +8,7 @@ from scraper import (
     VALID_STATIONS,
     _parse_volleyballmagazine_tv_schedule,
     _volleyballmagazine_station,
+    extract_broadcast_item,
     reconcile,
 )
 
@@ -109,3 +110,33 @@ def test_volleyballmagazine_parser_rejects_articles_outside_2026_27_season():
     女子 群馬vsA秋田庄内
     """
     assert _parse_volleyballmagazine_tv_schedule(title, text) == []
+
+
+def test_overlapping_sun_tv_alias_does_not_hide_a_broadcast():
+    item = extract_broadcast_item(
+        "2026/10/24 13:00～15:00 群馬グリーンウイングス vs "
+        "アランマーレ秋田庄内 サンテレビジョン"
+    )
+    assert item is not None
+    assert item[0] == "サンテレビジョン"
+    assert item[1] == "2026-10-24"
+    assert item[3] == "13:00"
+
+
+def test_overlapping_regional_station_aliases_are_canonicalized():
+    ohk = extract_broadcast_item(
+        "2026/10/24 13:00 岡山シーガルズ vs NECレッドロケッツ川崎 OHK岡山放送"
+    )
+    tsc = extract_broadcast_item(
+        "2026/10/24 13:00 岡山シーガルズ vs NECレッドロケッツ川崎 TSCテレビせとうち"
+    )
+    assert ohk is not None and ohk[0] == "岡山放送"
+    assert tsc is not None and tsc[0] == "テレビせとうち"
+
+
+def test_distinct_tv_stations_in_one_block_remain_ambiguous():
+    item = extract_broadcast_item(
+        "2026/10/24 13:00 岡山シーガルズ vs NECレッドロケッツ川崎 "
+        "サンテレビジョン J SPORTS 2"
+    )
+    assert item is None
