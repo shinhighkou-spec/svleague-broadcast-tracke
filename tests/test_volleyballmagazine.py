@@ -98,3 +98,14 @@ def test_direct_broadcaster_airtime_outranks_magazine_cross_check():
     assert len(matching) == 1
     assert matching[0].broadcast_time == "18:20"
     assert matching[0].source == broadcaster.source
+
+
+def test_volleyballmagazine_parser_rejects_articles_outside_2026_27_season():
+    title = "2027年10月のバレーボール番組"
+    text = """
+    〖大同生命SVリーグ2026-2027〗
+    ＜地上波＞
+    10/24（土）[生]13:00～15:00 群馬テレビ
+    女子 群馬vsA秋田庄内
+    """
+    assert _parse_volleyballmagazine_tv_schedule(title, text) == []
