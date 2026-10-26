@@ -1120,16 +1120,18 @@ def _canonical_search_result_url(href):
     path = parsed.path.rstrip("/") or "/"
     return urllib.parse.urlunparse((parsed.scheme.casefold(), parsed.netloc.casefold(), path, "", "", ""))
 
-def _unique_search_results(results, seen_urls):
-    """Avoid opening the same result page repeatedly across overlapping search queries."""
+def _unique_search_results(results, seen_urls, allow_unknown_time=False):
+    """Deduplicate per verification policy so a relaxed pass is not lost after a strict pass."""
     unique = []
+    policy = bool(allow_unknown_time)
     for result in results:
         if len(result) < 3:
             continue
         canonical = _canonical_search_result_url(result[1])
-        if not canonical or canonical in seen_urls:
+        key = (canonical, policy)
+        if not canonical or key in seen_urls:
             continue
-        seen_urls.add(canonical)
+        seen_urls.add(key)
         unique.append(result)
     return unique
 
@@ -1156,7 +1158,7 @@ def scrape_social_and_regional(page, rows):
 
     def process_results(results, allow_unknown_time=False):
         nonlocal candidate_count, verified_count, accepted
-        for title, href, snippet in _unique_search_results(results, seen_result_urls):
+        for title, href, snippet in _unique_search_results(results, seen_result_urls, allow_unknown_time):
             candidate_count += 1
             item = _verify_search_result(page, title, href, snippet, require_time=not allow_unknown_time)
             if not item:

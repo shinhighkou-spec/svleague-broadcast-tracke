@@ -172,3 +172,5 @@ def test_social_search_results_are_deduplicated_without_losing_distinct_urls():
     unique = _unique_search_results(results, seen)
     assert [item[0] for item in unique] == ["first", "different page"]
     assert _unique_search_results([results[1]], seen) == []
+    # A relaxed no-airtime pass may legitimately re-check a URL rejected by a strict pass.
+    assert _unique_search_results([results[1]], seen, allow_unknown_time=True) == [results[1]]
