@@ -1497,13 +1497,12 @@ def scrape_volleyballmagazine(page, rows):
             page.goto(listing_url, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(300)
             successful_listings += 1
-            links = page.locator('a[href*="/"]')
+            links = page.locator("a[href]")
             for i in range(links.count()):
                 link = links.nth(i)
                 try:
                     href = link.get_attribute("href") or ""
-                    title = re.sub(r"\s+", " ", link.inner_text(timeout=1200)).strip()
-                    if not re.search(r"20\d{2}年\s*\d{1,2}月のバレーボール番組", title):
+                    if not href:
                         continue
                     absolute = urllib.parse.urljoin(listing_url, href)
                     parsed = urllib.parse.urlparse(absolute)
@@ -1512,6 +1511,11 @@ def scrape_volleyballmagazine(page, rows):
                     }:
                         continue
                     if not re.fullmatch(r"/\d+/?", parsed.path):
+                        continue
+                    # Read text only for same-site numeric article URLs, not every
+                    # navigation/footer/social link on the listing page.
+                    title = re.sub(r"\s+", " ", link.inner_text(timeout=400)).strip()
+                    if not re.search(r"20\d{2}年\s*\d{1,2}月のバレーボール番組", title):
                         continue
                     article_url = "https://volleyballmagazine.jp" + parsed.path.rstrip("/") + "/"
                     candidate_articles.setdefault(article_url, title)
@@ -1533,9 +1537,25 @@ def scrape_volleyballmagazine(page, rows):
         match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title)
         return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
 
-    # The newest few month articles provide a bounded historical cross-check
-    # without turning every daily run into a crawl of the entire archive.
-    articles = sorted(candidate_articles.items(), key=month_key, reverse=True)[:3]
+    # Only process monthly articles belonging to the tracked 2026-27 season.
+    # The newest few articles provide a bounded historical cross-check without
+    # crawling the entire archive or fetching out-of-season pages.
+    sorted_articles = sorted(candidate_articles.items(), key=month_key, reverse=True)
+    articles = []
+    for article_url, title in sorted_articles:
+        match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title)
+        if not match:
+            continue
+        year, month = int(match.group(1)), int(match.group(2))
+        if (year == 2026 and 9 <= month <= 12) or (year == 2027 and 1 <= month <= 6):
+            articles.append((article_url, title))
+        if len(articles) == 3:
+            break
+    if not articles:
+        message = "No 2026-27 monthly Volleyball Magazine TV schedule article was found"
+        print("VOLLEYBALLMAGAZINE ARTICLE DISCOVERY INCOMPLETE:", message)
+        flag_source_discovery_degraded(message)
+        return
     parsed_articles = 0
     accepted = 0
     review_articles = 0
