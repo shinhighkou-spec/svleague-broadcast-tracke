@@ -22,8 +22,8 @@
     "broadcast_date": "2026-10-17",
     "home": "大阪マーヴェラス",
     "away": "岡山シーガルズ",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "14:00",
     "match_start_time": "14:05"
   },
   {
@@ -49,8 +49,8 @@
     "broadcast_date": "2026-10-18",
     "home": "大阪マーヴェラス",
     "away": "岡山シーガルズ",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "13:00",
     "match_start_time": "13:05"
   },
   {
@@ -67,9 +67,18 @@
     "broadcast_date": "2026-10-23",
     "home": "デンソーエアリービーズ",
     "away": "SAGA久光スプリングス",
-    "source": "https://www.svleague.jp/news/detail/100302/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "19:00",
     "match_start_time": "19:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-24",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "12:00",
+    "match_start_time": "12:05"
   },
   {
     "station": "サンテレビジョン",
@@ -79,15 +88,6 @@
     "source": "previously-confirmed-user-shared-tv-listing",
     "broadcast_time": "12:00",
     "match_start_time": ""
-  },
-  {
-    "station": "GAORA SPORTS",
-    "broadcast_date": "2026-10-24",
-    "home": "ヴィクトリーナ姫路",
-    "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "",
-    "match_start_time": "12:05"
   },
   {
     "station": "群馬テレビ",
@@ -103,8 +103,8 @@
     "broadcast_date": "2026-10-24",
     "home": "北海道イエロースターズ",
     "away": "大阪ブルテオン",
-    "source": "known-official-fixture",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "14:00",
     "match_start_time": "14:05"
   },
   {
@@ -126,6 +126,15 @@
     "match_start_time": ""
   },
   {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-10-25",
+    "home": "ヴィクトリーナ姫路",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "12:00",
+    "match_start_time": "12:05"
+  },
+  {
     "station": "サンテレビジョン",
     "broadcast_date": "2026-10-25",
     "home": "ヴィクトリーナ姫路",
@@ -135,21 +144,12 @@
     "match_start_time": ""
   },
   {
-    "station": "GAORA SPORTS",
-    "broadcast_date": "2026-10-25",
-    "home": "ヴィクトリーナ姫路",
-    "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "",
-    "match_start_time": "12:05"
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-10-25",
     "home": "北海道イエロースターズ",
     "away": "大阪ブルテオン",
-    "source": "known-official-fixture",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "13:00",
     "match_start_time": "13:05"
   },
   {
@@ -175,8 +175,8 @@
     "broadcast_date": "2026-10-31",
     "home": "大阪ブルテオン",
     "away": "ウルフドッグス名古屋",
-    "source": "known-official-fixture",
-    "broadcast_time": "",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "12:00",
     "match_start_time": "12:05"
   },
   {
