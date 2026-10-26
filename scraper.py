@@ -847,6 +847,7 @@ def _discover_volleyballking_supplemental_articles(page):
     visited = set()
     child_sitemaps = {}
     article_lastmod = {}
+    article_titles = {}
     valid_sources = []
 
     def inspect_source(url):
@@ -869,6 +870,13 @@ def _discover_volleyballking_supplemental_articles(page):
             valid_sources.append((url, kind))
             print("VOLLEYBALLKING DISCOVERY SOURCE OK:", url, kind, "articles", len(articles), "child_sitemaps", len(sitemaps))
             _merge_volleyballking_sitemap_candidates(child_sitemaps, sitemaps, visited)
+            if kind == "feed":
+                for article_url, title in _extract_volleyballking_feed_titles(url, body).items():
+                    old_title = article_titles.get(article_url, "")
+                    title_is_relevant = any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS)
+                    old_title_is_relevant = any(term.casefold() in old_title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS)
+                    if not old_title or (title_is_relevant and not old_title_is_relevant):
+                        article_titles[article_url] = title
             for article_url, lastmod in articles:
                 old = article_lastmod.get(article_url, "")
                 if article_url not in article_lastmod or lastmod > old:
@@ -884,15 +892,138 @@ def _discover_volleyballking_supplemental_articles(page):
     for url, _ in sorted(child_sitemaps.items(), key=lambda item: (item[1] or "", item[0]), reverse=True)[:5]:
         inspect_source(url)
 
-    ordered = sorted(article_lastmod.items(), key=lambda item: item[1] or "", reverse=True)
-    urls = [url for url, _ in ordered]
+    urls = _prioritize_volleyballking_article_urls(article_lastmod, article_titles)
+    title_matches = sum(
+        1 for title in article_titles.values()
+        if any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS)
+    )
     print("VOLLEYBALLKING DISCOVERY VALID SOURCES:", len(valid_sources))
     print("VOLLEYBALLKING DISCOVERY CANDIDATE ARTICLES:", len(urls))
+    print("VOLLEYBALLKING FEED TITLES RETAINED:", len(article_titles))
+    print("VOLLEYBALLKING FEED TITLES MATCHING BROADCAST TERMS:", title_matches)
     if len(child_sitemaps) > 5:
         print("VOLLEYBALLKING DISCOVERY CHILD SITEMAPS DEFERRED:", len(child_sitemaps) - 5)
     if len(urls) > 100:
         print("VOLLEYBALLKING DISCOVERY ARTICLE URLS DEFERRED:", len(urls) - 100)
     return urls[:100]
+
+def _extract_volleyballking_feed_titles(document_url, content):
+    """Retain RSS/Atom article titles as discovery metadata for prioritization only."""
+    try:
+        root = ET.fromstring(content)
+    except (ET.ParseError, ValueError, TypeError):
+        return {}
+
+    found = {}
+    for node in root.iter():
+        tag = _volleyballking_local_name(node.tag)
+        if tag not in {"item", "entry"}:
+            continue
+        title = ""
+        href = ""
+        fallback_href = ""
+        for child in node:
+            child_tag = _volleyballking_local_name(child.tag)
+            value = (child.text or "").strip()
+            if child_tag == "title":
+                title = re.sub(r"\s+", " ", value).strip()
+            elif child_tag == "link":
+                if tag == "entry":
+                    rel = child.attrib.get("rel", "alternate")
+                    if rel in ("alternate", ""):
+                        href = child.attrib.get("href") or value
+                elif value and not href:
+                    href = value
+            elif child_tag == "guid" and value:
+                fallback_href = value
+        article_url = _normalise_volleyballking_article_url(href, document_url)
+        if not article_url:
+            article_url = _normalise_volleyballking_article_url(fallback_href, document_url)
+        if article_url and title:
+            found[article_url] = title
+    return found
+
+
+def _prioritize_volleyballking_article_urls(article_lastmod, article_titles):
+    """Prioritize broadcast-related feed titles; title metadata never confirms a broadcast."""
+    ordered = sorted(article_lastmod.items(), key=lambda item: item[1] or "", reverse=True)
+
+    def title_matches(url):
+        title = article_titles.get(url, "").casefold()
+        return any(term.casefold() in title for term in VOLLEYBALLKING_TITLE_TERMS)
+
+    relevant = [url for url, _ in ordered if title_matches(url)]
+    other = [url for url, _ in ordered if not title_matches(url)]
+    return relevant + other
+
+
+def _extract_volleyballking_broadcasts(text):
+    """Extract multiple explicit station/date/match pairs from an opened article.
+
+    A sentence must contain exactly one recognized station and an explicit TV
+    broadcast term. Article publication timestamps are ignored; a missing
+    broadcast start time stays blank rather than borrowing the match start.
+    """
+    text = re.sub(r"\s+", " ", text).strip()
+    if not any(term.casefold() in text.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+        return []
+
+    found = []
+    seen = set()
+    sentences = re.split(r"(?<=[。！？])", text)
+    for sentence in sentences:
+        stations = [st for st in sorted(VALID_STATIONS, key=len, reverse=True) if st in sentence]
+        stations = list(dict.fromkeys(stations))
+        if len(stations) != 1:
+            # A sentence mentioning multiple channels cannot safely map every
+            # card to one station; skip it rather than guessing.
+            continue
+        station = stations[0]
+        if not re.search(r"(?:放送|生中継|中継|テレビ)", sentence):
+            continue
+
+        dates = list(re.finditer(r"(?<!\d)(\d{1,2})月(\d{1,2})日", sentence))
+        for index, date_match in enumerate(dates):
+            month, day = int(date_match.group(1)), int(date_match.group(2))
+            candidate_date = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+            if not valid_season_date(candidate_date):
+                continue
+            segment_end = dates[index + 1].start() if index + 1 < len(dates) else len(sentence)
+            segment = sentence[date_match.end():segment_end]
+            match = parse_match(segment)
+            if not match:
+                continue
+
+            # Only parse explicitly labelled broadcast times. A standalone
+            # "試合開始 13:05" is deliberately not accepted as airing time.
+            airtime = ""
+            time_match = re.search(
+                r"(\d{1,2})時(\d{1,2})分\s*(?:から|より)\s*(?:放送|生中継|中継)",
+                segment,
+            )
+            if time_match:
+                airtime = f"{int(time_match.group(1)):02d}:{int(time_match.group(2)):02d}"
+            if not airtime:
+                time_match = re.search(
+                    r"(?:放送開始|放送時間|中継開始)[^\d]{0,12}(\d{1,2}):(\d{2})",
+                    segment,
+                )
+                if time_match:
+                    airtime = f"{int(time_match.group(1)):02d}:{time_match.group(2)}"
+            if not airtime:
+                time_match = re.search(
+                    r"(?:放送|生中継|中継)[^。]{0,35}?(\d{1,2}):(\d{2})\s*(?:～|〜|-)",
+                    segment,
+                )
+                if time_match:
+                    airtime = f"{int(time_match.group(1)):02d}:{time_match.group(2)}"
+
+            item = (station, candidate_date, match, airtime)
+            if item not in seen:
+                seen.add(item)
+                found.append(item)
+    return found
+
 
 def _extract_volleyballking_broadcast(text):
     """Parse explicit broadcast evidence from a VolleyballKing article.
@@ -1002,10 +1133,9 @@ def scrape_volleyballking(page, rows):
 
     accepted = 0
     needs_review = 0
-    # Inspect the newest title-matched listing/JSON-LD candidates plus a bounded
-    # number of additional RSS/sitemap article URLs. Every candidate is opened
-    # and must pass the article-body parser; discovery metadata alone is never
-    # accepted as broadcast evidence.
+    already_covered = 0
+    # RSS/Atom titles prioritize likely broadcast articles, but title metadata
+    # never confirms a broadcast. Every candidate is opened and parsed.
     listing_candidates = list(article_links.items())[:20]
     listing_urls = set(article_links)
     supplemental_candidates = [(href, "") for href in supplemental_urls if href not in listing_urls][:10]
@@ -1014,15 +1144,39 @@ def scrape_volleyballking(page, rows):
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
             evidence = _page_evidence_text(page)
-            item = _extract_volleyballking_broadcast(title + " " + evidence)
-            if not item:
+            article_text = title + " " + evidence
+            items = _extract_volleyballking_broadcasts(article_text)
+            if not items:
+                article_stations = [st for st in VALID_STATIONS if st in article_text]
+                if len(article_stations) == 1:
+                    single_item = _extract_volleyballking_broadcast(article_text)
+                    if single_item:
+                        items = [single_item]
+            if not items:
                 needs_review += 1
                 print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
                 continue
-            station, d, match, tm = item
-            add(rows, station, d, match, href, tm)
-            accepted += 1
-            print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
+
+            for station, d, match, tm in items:
+                identity = (station, d, match[0], match[1])
+                existing_records = list(rows) + load_previous() + known_facts()
+                exact_existing = any(
+                    (r.station, r.broadcast_date, r.home, r.away) == identity
+                    and (not tm or r.broadcast_time == tm)
+                    for r in existing_records
+                )
+                # A time-less secondary-source row must not duplicate a known
+                # official/broadcaster row or overwrite its broadcast time.
+                if exact_existing or (not tm and any(
+                    (r.station, r.broadcast_date, r.home, r.away) == identity
+                    for r in existing_records
+                )):
+                    already_covered += 1
+                    print("VOLLEYBALLKING CONFIRMS EXISTING ROW:", station, d, match[0], "vs", match[1], "|", href)
+                    continue
+                add(rows, station, d, match, href, tm)
+                accepted += 1
+                print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
         except Exception as e:
             print("VOLLEYBALLKING ARTICLE ERROR:", href, e)
     print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
@@ -1034,6 +1188,7 @@ def scrape_volleyballking(page, rows):
     if len(supplemental_urls) > len(supplemental_candidates):
         print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES DEFERRED:", len(supplemental_urls) - len(supplemental_candidates))
     print("VOLLEYBALLKING ACCEPTED:", accepted)
+    print("VOLLEYBALLKING CONFIRMED ALREADY-COVERED ROWS:", already_covered)
     print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
 
 
