@@ -1,6 +1,7 @@
 from __future__ import annotations
 import csv, json, os, re, urllib.parse
 import xml.etree.ElementTree as ET
+from bs4 import BeautifulSoup
 
 def flag_source_discovery_degraded(reason):
     """Surface incomplete optional-source discovery to GitHub Actions without discarding verified rows."""
@@ -546,6 +547,47 @@ REGIONAL_STATIONS = {
 }
 BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
 VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
+
+def _parse_duckduckgo_results(content, limit=8):
+    """Parse DuckDuckGo HTML results; resolve its redirect wrapper before verification."""
+    soup = BeautifulSoup(content or "", "html.parser")
+    blocks = soup.select(".result")
+    if not blocks:
+        if soup.select_one(".no-results"):
+            return []
+        raise RuntimeError("DuckDuckGo response had no recognizable result blocks")
+
+    results = []
+    for block in blocks:
+        anchor = block.select_one("a.result__a") or block.select_one(".result__title a")
+        if not anchor:
+            continue
+        href = (anchor.get("href") or "").strip()
+        if not href:
+            continue
+        parsed = urllib.parse.urlparse(urllib.parse.urljoin("https://html.duckduckgo.com/", href))
+        if (parsed.hostname or "").casefold().endswith("duckduckgo.com") and parsed.path == "/l/":
+            target = urllib.parse.parse_qs(parsed.query).get("uddg", [""])[0]
+            if target:
+                href = target
+        title = anchor.get_text(" ", strip=True)
+        snippet_node = block.select_one(".result__snippet")
+        snippet = snippet_node.get_text(" ", strip=True) if snippet_node else ""
+        if title and href.startswith(("http://", "https://")):
+            results.append((title, href, snippet))
+        if len(results) >= limit:
+            break
+    if not results and not soup.select_one(".no-results"):
+        raise RuntimeError("DuckDuckGo result blocks were present but none had parseable links")
+    return results
+
+
+def _duckduckgo_results(page, query, limit=8):
+    url = "https://html.duckduckgo.com/html/?q=" + urllib.parse.quote_plus(query)
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
+    page.wait_for_timeout(500)
+    return _parse_duckduckgo_results(page.content(), limit=limit)
+
 
 def _bing_results(page, query, limit=8):
     """Return search-result candidates. Search snippets are NEVER broadcast evidence."""
@@ -1391,6 +1433,8 @@ def scrape_social_and_regional(page, rows):
     accepted = 0
     search_failures = 0
     search_unavailable = False
+    search_provider = "bing"
+    fallback_count = 0
 
     def process_results(results, allow_unknown_time=False):
         nonlocal candidate_count, verified_count, accepted
@@ -1409,19 +1453,31 @@ def scrape_social_and_regional(page, rows):
             accepted += 1
 
     def search_and_process(query, error_label, allow_unknown_time=False):
-        nonlocal search_failures, search_unavailable
-        # Bing retries once inside _bing_results. If it is unavailable, do not
-        # spend the rest of the run repeating hundreds of identical failed calls.
+        nonlocal search_failures, search_unavailable, search_provider, fallback_count
         if search_unavailable:
             return
         try:
-            process_results(_bing_results(page, query), allow_unknown_time=allow_unknown_time)
+            if search_provider == "bing":
+                try:
+                    results = _bing_results(page, query)
+                except Exception as bing_error:
+                    # Keep candidate verification unchanged, but switch providers
+                    # rather than abandoning every remaining team/region query.
+                    fallback_count += 1
+                    search_provider = "duckduckgo"
+                    print("BING SEARCH FAILED; TRYING DUCKDUCKGO:", query, bing_error)
+                    results = _duckduckgo_results(page, query)
+            else:
+                results = _duckduckgo_results(page, query)
+            process_results(results, allow_unknown_time=allow_unknown_time)
         except Exception as e:
             search_failures += 1
             search_unavailable = True
             print(error_label, query, e)
-            print("SOCIAL/REGIONAL DISCOVERY ABORTED: search engine unavailable after retry; remaining searches skipped.")
-            flag_source_discovery_degraded(f"Search engine unavailable; remaining social/regional searches skipped: {error_label} {query}")
+            print("SOCIAL/REGIONAL DISCOVERY ABORTED: Bing and DuckDuckGo search unavailable; remaining searches skipped.")
+            flag_source_discovery_degraded(
+                f"Both search providers unavailable; remaining social/regional searches skipped: {error_label} {query}"
+            )
 
     # The league account is a first-priority source. Search it explicitly on every
     # run in addition to the team and regional searches below; a result is only
@@ -1505,6 +1561,8 @@ def scrape_social_and_regional(page, rows):
     print("SOCIAL/REGIONAL DISCOVERY VERIFIED:", verified_count)
     print("SOCIAL/REGIONAL DISCOVERY ACCEPTED:", accepted)
     print("SOCIAL/REGIONAL DISCOVERY SEARCH FAILURES:", search_failures)
+    print("SOCIAL/REGIONAL SEARCH PROVIDER USED:", search_provider)
+    print("SOCIAL/REGIONAL BING FALLBACKS:", fallback_count)
 
 
 KNOWN_VERIFIED_AIRTIME_SOURCES = {
