@@ -1,5 +1,6 @@
 from __future__ import annotations
 import csv, json, re, urllib.parse
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, asdict
 from datetime import date, datetime
 from pathlib import Path
@@ -644,6 +645,236 @@ VOLLEYBALLKING_TITLE_TERMS = (
     "メディアパートナー", "番組表", "テレビ局",
 )
 
+
+VOLLEYBALLKING_DISCOVERY_URLS = (
+    "https://volleyballking.jp/sitemap.xml",
+    "https://volleyballking.jp/sitemap_index.xml",
+    "https://volleyballking.jp/sitemap-index.xml",
+    "https://volleyballking.jp/wp-sitemap.xml",
+    "https://volleyballking.jp/feed/",
+    "https://volleyballking.jp/feed",
+    "https://volleyballking.jp/rss.xml",
+    "https://volleyballking.jp/atom.xml",
+)
+
+def _volleyballking_local_name(tag):
+    return str(tag).rsplit("}", 1)[-1].casefold()
+
+def _normalise_volleyballking_url(href, base_url):
+    """Accept only first-party VolleyballKing URLs; discard tracking/query fragments."""
+    if not href:
+        return None
+    absolute = urllib.parse.urljoin(base_url, str(href).strip())
+    parsed = urllib.parse.urlparse(absolute)
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if (parsed.hostname or "").casefold() not in {"volleyballking.jp", "www.volleyballking.jp"}:
+        return None
+    return urllib.parse.urlunparse(("https", "volleyballking.jp", parsed.path, "", "", ""))
+
+def _normalise_volleyballking_article_url(href, base_url):
+    url = _normalise_volleyballking_url(href, base_url)
+    if not url:
+        return None
+    path = urllib.parse.urlparse(url).path
+    if not re.fullmatch(r"/article/\d+/?", path):
+        return None
+    return "https://volleyballking.jp" + path.rstrip("/") + "/"
+
+def _parse_volleyballking_discovery_document(document_url, content):
+    """Parse robots.txt, sitemap XML, RSS and Atom as discovery hints only.
+
+    Returned article URLs are candidates, never broadcast facts. The article page
+    must still independently confirm station, broadcast date, teams and airtime.
+    """
+    sitemap_urls = []
+    article_entries = []
+    parsed_url = urllib.parse.urlparse(document_url)
+    if parsed_url.path.casefold().endswith("/robots.txt"):
+        for line in content.splitlines():
+            m = re.match(r"\s*sitemap\s*:\s*(\S+)", line, re.I)
+            if m:
+                url = _normalise_volleyballking_url(m.group(1), document_url)
+                if url:
+                    sitemap_urls.append((url, ""))
+        return list(dict.fromkeys(sitemap_urls)), [], "robots"
+
+    try:
+        root = ET.fromstring(content)
+    except (ET.ParseError, ValueError, TypeError):
+        return [], [], None
+
+    root_name = _volleyballking_local_name(root.tag)
+
+    def child_text(node, wanted):
+        for child in node:
+            if _volleyballking_local_name(child.tag) == wanted:
+                return (child.text or "").strip()
+        return ""
+
+    if root_name == "sitemapindex":
+        for node in root:
+            if _volleyballking_local_name(node.tag) != "sitemap":
+                continue
+            loc = child_text(node, "loc")
+            url = _normalise_volleyballking_url(loc, document_url)
+            if url:
+                sitemap_urls.append((url, child_text(node, "lastmod")))
+        sitemap_urls.sort(key=lambda item: item[1], reverse=True)
+        return sitemap_urls, [], "sitemap-index"
+
+    if root_name == "urlset":
+        for node in root:
+            if _volleyballking_local_name(node.tag) != "url":
+                continue
+            loc = child_text(node, "loc")
+            article_url = _normalise_volleyballking_article_url(loc, document_url)
+            if article_url:
+                article_entries.append((article_url, child_text(node, "lastmod")))
+        article_entries.sort(key=lambda item: item[1], reverse=True)
+        return [], article_entries, "sitemap-urlset"
+
+    if root_name in {"rss", "feed", "rdf"}:
+        for node in root.iter():
+            tag = _volleyballking_local_name(node.tag)
+            if tag == "item":
+                href = child_text(node, "link") or child_text(node, "guid")
+                published = child_text(node, "pubdate") or child_text(node, "date")
+                article_url = _normalise_volleyballking_article_url(href, document_url)
+                if article_url:
+                    article_entries.append((article_url, published))
+            elif tag == "entry":
+                href = ""
+                for child in node:
+                    if _volleyballking_local_name(child.tag) == "link":
+                        rel = child.attrib.get("rel", "alternate")
+                        if rel in ("alternate", ""):
+                            href = child.attrib.get("href") or (child.text or "").strip()
+                            if href:
+                                break
+                published = child_text(node, "updated") or child_text(node, "published")
+                article_url = _normalise_volleyballking_article_url(href, document_url)
+                if article_url:
+                    article_entries.append((article_url, published))
+        return [], article_entries, "feed"
+
+    return [], [], None
+
+def _extract_volleyballking_jsonld_articles(script_texts):
+    """Extract first-party article URLs/titles from JSON-LD without treating them as facts."""
+    found = {}
+    article_types = {"article", "newsarticle", "blogposting", "reportagenewsarticle"}
+
+    def visit(value):
+        if isinstance(value, list):
+            for item in value:
+                visit(item)
+            return
+        if not isinstance(value, dict):
+            return
+
+        types = value.get("@type", [])
+        if isinstance(types, str):
+            types = [types]
+        is_article = any(str(item).casefold() in article_types for item in types)
+        title = re.sub(r"\s+", " ", str(value.get("headline") or value.get("name") or "")).strip()
+        raw_url = value.get("url") or value.get("@id")
+        main_entity = value.get("mainEntityOfPage")
+        if not raw_url and isinstance(main_entity, dict):
+            raw_url = main_entity.get("url") or main_entity.get("@id")
+        elif not raw_url and isinstance(main_entity, str):
+            raw_url = main_entity
+        url = _normalise_volleyballking_article_url(raw_url, "https://volleyballking.jp/")
+        if is_article and url and title and any(term.casefold() in title.casefold() for term in VOLLEYBALLKING_TITLE_TERMS):
+            found.setdefault(url, title)
+
+        for child in value.values():
+            if isinstance(child, (dict, list)):
+                visit(child)
+
+    for raw in script_texts:
+        try:
+            visit(json.loads(raw))
+        except (json.JSONDecodeError, TypeError) as e:
+            print("VOLLEYBALLKING JSON-LD PARSE ERROR:", type(e).__name__)
+    return list(found.items())
+
+def _discover_volleyballking_supplemental_articles(page):
+    """Probe robots.txt, declared/common sitemaps and RSS/Atom feeds.
+
+    Failures are logged as failures, not interpreted as an empty article list.
+    The URLs discovered here are only candidates and must pass article-page parsing.
+    """
+    request = page.request
+    robots_url = "https://volleyballking.jp/robots.txt"
+    declared_sitemaps = []
+    try:
+        response = request.get(robots_url, timeout=15000)
+        if response.status == 200:
+            body = response.text()
+            sitemap_rows, _, _ = _parse_volleyballking_discovery_document(robots_url, body)
+            declared_sitemaps = [url for url, _ in sitemap_rows]
+            print("VOLLEYBALLKING ROBOTS OK:", robots_url, "declared_sitemaps", len(declared_sitemaps))
+        else:
+            print("VOLLEYBALLKING ROBOTS FETCH ERROR:", robots_url, "status", response.status)
+    except Exception as e:
+        print("VOLLEYBALLKING ROBOTS FETCH ERROR:", robots_url, e)
+
+    initial_urls = list(dict.fromkeys(declared_sitemaps + list(VOLLEYBALLKING_DISCOVERY_URLS)))
+    visited = set()
+    child_sitemaps = {}
+    article_lastmod = {}
+    valid_sources = []
+
+    def inspect_source(url):
+        if url in visited:
+            return
+        visited.add(url)
+        try:
+            response = request.get(url, timeout=15000)
+            if response.status != 200:
+                print("VOLLEYBALLKING DISCOVERY SOURCE UNAVAILABLE:", url, "status", response.status)
+                return
+            body = response.text()
+            if len(body) > 5_000_000:
+                print("VOLLEYBALLKING DISCOVERY SOURCE SKIPPED (over 5 MB):", url)
+                return
+            sitemaps, articles, kind = _parse_volleyballking_discovery_document(url, body)
+            if kind is None:
+                print("VOLLEYBALLKING DISCOVERY SOURCE UNRECOGNIZED:", url)
+                return
+            valid_sources.append((url, kind))
+            print("VOLLEYBALLKING DISCOVERY SOURCE OK:", url, kind, "articles", len(articles), "child_sitemaps", len(sitemaps))
+            for sitemap_url, lastmod in sitemaps:
+                if sitemap_url not in visited:
+                    old = child_sitemaps.get(sitemap_url, "")
+                    if lastmod > old:
+                        child_sitemaps[sitemap_url] = lastmod
+            for article_url, lastmod in articles:
+                old = article_lastmod.get(article_url, "")
+                if article_url not in article_lastmod or lastmod > old:
+                    article_lastmod[article_url] = lastmod
+        except Exception as e:
+            print("VOLLEYBALLKING DISCOVERY SOURCE FETCH ERROR:", url, e)
+
+    for url in initial_urls[:12]:
+        inspect_source(url)
+
+    # Follow only a bounded number of newest child sitemaps; never crawl an
+    # unbounded sitemap tree in a scheduled run.
+    for url, _ in sorted(child_sitemaps.items(), key=lambda item: item[1], reverse=True)[:5]:
+        inspect_source(url)
+
+    ordered = sorted(article_lastmod.items(), key=lambda item: item[1] or "", reverse=True)
+    urls = [url for url, _ in ordered]
+    print("VOLLEYBALLKING DISCOVERY VALID SOURCES:", len(valid_sources))
+    print("VOLLEYBALLKING DISCOVERY CANDIDATE ARTICLES:", len(urls))
+    if len(child_sitemaps) > 5:
+        print("VOLLEYBALLKING DISCOVERY CHILD SITEMAPS DEFERRED:", len(child_sitemaps) - 5)
+    if len(urls) > 100:
+        print("VOLLEYBALLKING DISCOVERY ARTICLE URLS DEFERRED:", len(urls) - 100)
+    return urls[:100]
+
 def _extract_volleyballking_broadcast(text):
     """Parse explicit broadcast evidence from a VolleyballKing article.
     Article publication dates are not treated as broadcast dates. The source
@@ -734,18 +965,32 @@ def scrape_volleyballking(page, rows):
                         article_links[href] = title
                 except Exception:
                     continue
+            try:
+                for href, title in _extract_volleyballking_jsonld_articles(
+                    page.locator('script[type="application/ld+json"]').all_text_contents()
+                ):
+                    if href not in article_links:
+                        article_links[href] = title
+                        print("VOLLEYBALLKING JSON-LD CANDIDATE:", href, "|", title)
+            except Exception as e:
+                print("VOLLEYBALLKING JSON-LD READ ERROR:", url, e)
         except Exception as e:
             print("VOLLEYBALLKING LIST ERROR:", url, e)
 
-    if listing_successes == 0:
-        raise RuntimeError("Could not fetch any VolleyballKing article listing")
+    supplemental_urls = _discover_volleyballking_supplemental_articles(page)
+    if listing_successes == 0 and not article_links and not supplemental_urls:
+        raise RuntimeError("Could not fetch any VolleyballKing listing, RSS feed or sitemap")
 
     accepted = 0
     needs_review = 0
-    # Listing URLs are ordered newest-first. Inspect only the newest 20
-    # relevant articles per daily run; older items are already covered by the
-    # official-news archive and known facts.
-    for href, title in list(article_links.items())[:20]:
+    # Inspect the newest title-matched listing/JSON-LD candidates plus a bounded
+    # number of additional RSS/sitemap article URLs. Every candidate is opened
+    # and must pass the article-body parser; discovery metadata alone is never
+    # accepted as broadcast evidence.
+    listing_candidates = list(article_links.items())[:20]
+    listing_urls = set(article_links)
+    supplemental_candidates = [(href, "") for href in supplemental_urls if href not in listing_urls][:10]
+    for href, title in listing_candidates + supplemental_candidates:
         try:
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
@@ -762,7 +1007,13 @@ def scrape_volleyballking(page, rows):
         except Exception as e:
             print("VOLLEYBALLKING ARTICLE ERROR:", href, e)
     print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
-    print("VOLLEYBALLKING CANDIDATE ARTICLES:", len(article_links))
+    print("VOLLEYBALLKING LISTING/JSON-LD CANDIDATES:", len(article_links))
+    print("VOLLEYBALLKING LISTING CANDIDATES PROCESSED:", len(listing_candidates))
+    print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES PROCESSED:", len(supplemental_candidates))
+    if len(article_links) > len(listing_candidates):
+        print("VOLLEYBALLKING LISTING CANDIDATES DEFERRED:", len(article_links) - len(listing_candidates))
+    if len(supplemental_urls) > len(supplemental_candidates):
+        print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES DEFERRED:", len(supplemental_urls) - len(supplemental_candidates))
     print("VOLLEYBALLKING ACCEPTED:", accepted)
     print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
 
@@ -1326,7 +1577,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 <section class="hero"><div class="shell">
  <div class="eyebrow">SV.LEAGUE 2026–27</div>
  <h1>テレビ放送スケジュール</h1>
- <p>放送日・放送局・試合開始時刻・対戦カードをひと目で確認</p>
+ <p>放送日・放送局・放送開始時刻・対戦カードをひと目で確認</p>
 </div></section>
 <main class="shell">
  <div class="controls">
@@ -1433,7 +1684,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
         day_blocks.append(
             f'<div class="day-card" data-date="{d}">'
             f'<div class="day-head"><span class="day-date">{d[5:].replace("-", ".")}</span><span class="day-week">（{weekday}）</span></div>'
-            f'<div class="grid-head"><div>放送局</div><div>試合開始</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
+            f'<div class="grid-head"><div>放送局</div><div>放送開始</div><div>ホームチーム</div><div>アウェイチーム</div><div>録画予約</div></div>'
             f'{"".join(body)}</div>'
         )
 

@@ -48,9 +48,18 @@ jobs:
         run: pytest -q
 
       - name: Collect broadcast data
-        # Do not block publication of the last known-good schedule when scraping fails.
-        # scraper.py preserves previous data on validation failure; still deploy that schedule.
-        run: python scraper.py || echo "::warning::Scraper failed; deploying the preserved last known-good schedule."
+        id: collect
+        # Continue to deployment after collection failure, but keep the failure visible.
+        # The next step restores the checked-out last known-good outputs before publishing.
+        continue-on-error: true
+        run: python scraper.py
+
+      - name: Restore last known-good outputs after collection failure
+        if: steps.collect.outcome == 'failure'
+        run: |
+          git checkout -- data site
+          echo "## Broadcast collection failed" >> "$GITHUB_STEP_SUMMARY"
+          echo "The last known-good data and site files were restored before deployment." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Commit updated data
         run: |
@@ -75,3 +84,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Mark collection failure after safe deployment
+        if: always() && steps.collect.outcome == 'failure'
+        run: |
+          echo "Collection failed. The prior known-good schedule was deployed; inspect the Collect broadcast data logs." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
