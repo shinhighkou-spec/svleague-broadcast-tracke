@@ -174,3 +174,69 @@ def test_social_search_results_are_deduplicated_without_losing_distinct_urls():
     assert _unique_search_results([results[1]], seen) == []
     # A relaxed no-airtime pass may legitimately re-check a URL rejected by a strict pass.
     assert _unique_search_results([results[1]], seen, allow_unknown_time=True) == [results[1]]
+
+
+def test_volleyballking_feed_titles_prioritize_broadcast_related_articles():
+    rss = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0"><channel>
+      <item><title>SVリーグ戦のテレビ放送追加情報</title>
+        <link>https://volleyballking.jp/article/93961/</link>
+        <pubDate>Sat, 17 Oct 2026 14:35:00 +0900</pubDate>
+      </item>
+      <item><title>一般ニュース</title>
+        <link>https://volleyballking.jp/article/94890/</link>
+        <pubDate>Mon, 26 Oct 2026 10:00:00 +0900</pubDate>
+      </item>
+    </channel></rss>"""
+    titles = scraper._extract_volleyballking_feed_titles("https://volleyballking.jp/feed/", rss)
+    assert titles == {
+        "https://volleyballking.jp/article/93961/": "SVリーグ戦のテレビ放送追加情報",
+        "https://volleyballking.jp/article/94890/": "一般ニュース",
+    }
+    ordered = scraper._prioritize_volleyballking_article_urls(
+        {
+            "https://volleyballking.jp/article/94890/": "2026-10-26",
+            "https://volleyballking.jp/article/93961/": "2026-10-17",
+        },
+        titles,
+    )
+    assert ordered[0] == "https://volleyballking.jp/article/93961/"
+    # Title metadata changes order only; it is never a broadcast fact.
+    assert scraper._extract_volleyballking_broadcasts("SVリーグ戦のテレビ放送追加情報 2026.10.17 14:35") == []
+
+
+def test_volleyballking_article_extracts_multiple_bs10_broadcasts_without_airtime():
+    article = (
+        "2026.10.17 14:35 SVリーグ戦のテレビ放送追加情報。"
+        "BS10では、女子は11月14日（土）に行われる第5節GAME1の"
+        "SAGA久光スプリングス vs PFUブルーキャッツ石川かほく、"
+        "11月28日（土）に行われる第7節GAME1の"
+        "NECレッドロケッツ川崎 vs PFUブルーキャッツ石川かほく、"
+        "男子は11月7日（土）に行われる第3節GAME1の"
+        "ウルフドッグス名古屋 vs ジェイテクトSTINGS愛知の3試合が放送される。"
+    )
+    assert scraper._extract_volleyballking_broadcasts(article) == [
+        ("BS10", "2026-11-14", ("SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"), ""),
+        ("BS10", "2026-11-28", ("NECレッドロケッツ川崎", "PFUブルーキャッツ石川かほく"), ""),
+        ("BS10", "2026-11-07", ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"), ""),
+    ]
+
+
+def test_volleyballking_article_does_not_use_match_start_as_airtime():
+    article = (
+        "BS10では11月14日（土）のSAGA久光スプリングス vs "
+        "PFUブルーキャッツ石川かほくを放送。試合開始13時05分。"
+    )
+    item = scraper._extract_volleyballking_broadcasts(article)
+    assert item == [
+        ("BS10", "2026-11-14", ("SAGA久光スプリングス", "PFUブルーキャッツ石川かほく"), "")
+    ]
+
+
+def test_volleyballking_article_with_multiple_stations_is_not_guessed():
+    article = (
+        "BS10とGAORA SPORTSでは11月14日（土）のSAGA久光スプリングス vs "
+        "PFUブルーキャッツ石川かほくを放送。"
+    )
+    assert scraper._extract_volleyballking_broadcasts(article) == []
+
