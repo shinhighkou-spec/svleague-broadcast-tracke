@@ -8,6 +8,8 @@ from scraper import (
     VALID_STATIONS,
     _parse_volleyballmagazine_tv_schedule,
     _volleyballmagazine_station,
+    _parse_gunma_tv_airtime,
+    GUNMA_TV_URLS,
     extract_broadcast_item,
     reconcile,
 )
@@ -174,3 +176,17 @@ def test_current_gunma_tv_timetable_has_direct_broadcaster_priority():
     assert len(matching) == 1
     assert matching[0].broadcast_time == "13:00"
     assert matching[0].source == current_timetable.source
+
+
+def test_gunma_tv_airtime_parser_uses_start_of_explicit_time_range():
+    assert _parse_gunma_tv_airtime("13:00～15:00 生中継") == "13:00"
+    assert _parse_gunma_tv_airtime("午後1時～午後3時 生中継") == "13:00"
+    assert _parse_gunma_tv_airtime("19:00〜21:15 放送") == "19:00"
+    assert _parse_gunma_tv_airtime("試合開始 19:05") == ""
+
+
+def test_current_gunma_tv_timetable_is_tried_before_legacy_page():
+    assert GUNMA_TV_URLS == (
+        "https://gtv.e-business.ne.jp/timetable/",
+        "https://www.gtv.co.jp/timetable/",
+    )
