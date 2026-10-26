@@ -296,3 +296,28 @@ def test_public_schedule_never_displays_match_start_as_broadcast_start(monkeypat
     assert '<div class="time">—</div>' in html
     assert '<div class="time">14:35</div>' not in html
 
+
+def test_duckduckgo_result_parser_resolves_redirect_and_keeps_snippet():
+    from scraper import _parse_duckduckgo_results
+    html = """
+    <div id="links">
+      <div class="result">
+        <h2 class="result__title"><a class="result__a"
+          href="https://duckduckgo.com/l/?uddg=https%3A%2F%2Fvolleyballking.jp%2Farticle%2F93961%2F&amp;rut=abc">
+          SVリーグ戦のテレビ放送追加情報</a></h2>
+        <a class="result__snippet">BS10の放送カードが追加</a>
+      </div>
+    </div>"""
+    assert _parse_duckduckgo_results(html) == [
+        ("SVリーグ戦のテレビ放送追加情報",
+         "https://volleyballking.jp/article/93961/",
+         "BS10の放送カードが追加")
+    ]
+
+
+def test_duckduckgo_result_parser_does_not_treat_unrecognized_markup_as_empty_results():
+    from scraper import _parse_duckduckgo_results
+    import pytest
+    with pytest.raises(RuntimeError, match="no recognizable result blocks"):
+        _parse_duckduckgo_results("<html><body>temporarily blocked</body></html>")
+
