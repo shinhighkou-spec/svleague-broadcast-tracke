@@ -156,3 +156,21 @@ def test_reconcile_merges_legacy_and_canonical_station_aliases():
         row.station, row.broadcast_date, row.home, row.away
     ) == ("サンテレビジョン", "2026-10-24", "岡山シーガルズ", "NECレッドロケッツ川崎")]
     assert len(matching) == 1
+
+
+def test_current_gunma_tv_timetable_has_direct_broadcaster_priority():
+    user_shared = Broadcast(
+        "群馬テレビ", "2026-10-24", "群馬グリーンウイングス",
+        "アランマーレ秋田庄内", "previously-confirmed-user-shared-tv-listing", "12:55"
+    )
+    current_timetable = Broadcast(
+        "群馬テレビ", "2026-10-24", "群馬グリーンウイングス",
+        "アランマーレ秋田庄内", "https://gtv.e-business.ne.jp/timetable/", "13:00"
+    )
+    rows = reconcile([user_shared, current_timetable])
+    matching = [row for row in rows if (
+        row.station, row.broadcast_date, row.home, row.away
+    ) == ("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内")]
+    assert len(matching) == 1
+    assert matching[0].broadcast_time == "13:00"
+    assert matching[0].source == current_timetable.source
