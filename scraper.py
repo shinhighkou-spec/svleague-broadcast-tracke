@@ -1396,6 +1396,14 @@ def _parse_volleyballmagazine_tv_schedule(title, text):
         title_match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", str(text or ""))
     if not title_match:
         return []
+    article_year, article_month = int(title_match.group(1)), int(title_match.group(2))
+    if not (
+        (article_year == 2026 and 9 <= article_month <= 12)
+        or (article_year == 2027 and 1 <= article_month <= 6)
+    ):
+        # This repository tracks only the 2026-27 season. Do not map a future
+        # season's October article back onto October 2026.
+        return []
 
     body = str(text or "")
     season_section = re.search(
