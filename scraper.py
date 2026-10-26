@@ -131,7 +131,14 @@ def canon_team(s: str) -> str:
 
 def clean_station(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
-    return "GAORA SPORTS" if s == "GAORA" else s
+    aliases = {
+        "GAORA": "GAORA SPORTS",
+        "サンテレビ": "サンテレビジョン",
+        "OHK岡山放送": "岡山放送",
+        "TSCテレビせとうち": "テレビせとうち",
+        "BS12 トゥエルビ": "BS12",
+    }
+    return aliases.get(s, s)
 
 def parse_date(s: str) -> str | None:
     m = re.search(r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})", s)
@@ -185,18 +192,29 @@ def parse_match(s: str):
         return None
     return unique[0], unique[1]
 
+def _recognized_station_names(text: str):
+    """Match longest station labels first so aliases inside them are not double-counted."""
+    matches = []
+    for station in sorted(VALID_STATIONS, key=len, reverse=True):
+        if station not in text:
+            continue
+        if any(station in existing for existing in matches):
+            continue
+        matches.append(station)
+    return list(dict.fromkeys(clean_station(station) for station in matches))
+
+
 def extract_broadcast_item(text: str, station_hint: str | None = None):
     """Strictly parse one DOM item/row. Rejects page-level mixed text."""
     text = re.sub(r"\s+", " ", text).strip()
-    stations = [s for s in VALID_STATIONS if s in text]
+    stations = _recognized_station_names(text)
     if station_hint:
         hint = clean_station(station_hint)
         # Some official SV.LEAGUE tables use a combined heading such as
         # "J SPORTS 1/2/3/4". In that case the actual channel is written
         # in each row, so do not inject the combined heading as a station.
-        if hint in VALID_STATIONS:
+        if hint in VALID_STATIONS and hint not in stations:
             stations.append(hint)
-    stations = list(dict.fromkeys(stations))
     if len(stations) != 1:
         return None
     d = parse_date(text)
