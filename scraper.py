@@ -34,6 +34,8 @@ OFFICIAL_NEWS_URLS = [
 ]
 GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
+VOLLEYBALLMAGAZINE_SCHEDULE_URL = "https://volleyballmagazine.jp/schedule/"
+VOLLEYBALLMAGAZINE_TV_CATEGORY_URL = "https://volleyballmagazine.jp/category/tv/"
 
 @dataclass(frozen=True)
 class Broadcast:
@@ -547,6 +549,10 @@ REGIONAL_STATIONS = {
 }
 BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
 VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
+# Additional television stations explicitly used in Volleyball Magazine's monthly TV schedules.
+# These names are valid only as candidate station labels; a row still needs an explicit
+# broadcast date, a recognized matchup, and a station/time block in the TV-only section.
+VALID_STATIONS |= {"福島テレビ", "BS12", "BSフジ", "OHK岡山放送", "TSCテレビせとうち"}
 
 def _parse_duckduckgo_results(content, limit=8):
     """Parse DuckDuckGo HTML results; resolve its redirect wrapper before verification."""
@@ -1306,6 +1312,240 @@ def scrape_volleyballking(page, rows):
     print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
 
 
+# Independent secondary source: Volleyball Magazine's monthly television schedule.
+# Article/listing titles only discover candidate pages. Facts are accepted only from
+# the dated TV schedule section of a fetched first-party article.
+VOLLEYBALLMAGAZINE_TEAM_ALIASES = {
+    "A秋田庄内": "アランマーレ秋田庄内",
+    "北海道YS": "北海道イエロースターズ",
+    "NEC川崎": "NECレッドロケッツ川崎",
+    "姫路": "ヴィクトリーナ姫路",
+    "デンソー": "デンソーエアリービーズ",
+    "SAGA久光": "SAGA久光スプリングス",
+    "群馬": "群馬グリーンウイングス",
+    "WD名古屋": "ウルフドッグス名古屋",
+    "東京GB": "東京グレートベアーズ",
+    "F鹿児島": "フラーゴラッド鹿児島",
+    "大阪MV": "大阪マーヴェラス",
+    "岡山": "岡山シーガルズ",
+    "PFU": "PFUブルーキャッツ石川かほく",
+    "東レ滋賀": "東レアローズ滋賀",
+    "埼玉上尾": "埼玉上尾メディックス",
+    "Astemo": "Astemoリヴァーレ茨城",
+    "A愛知": "アリーザ愛知",
+    "富山": "ＫＵＲＯＢＥアクアフェアリーズ富山",
+    "STINGS愛知": "ジェイテクトSTINGS愛知",
+    "サントリー": "サントリーサンバーズ大阪",
+    "日鉄堺BZ": "日本製鉄堺ブレイザーズ",
+    "広島TH": "広島サンダーズ",
+    "東レ静岡": "東レアローズ静岡",
+    "松本TD": "信州松本トライデンツ",
+    "ヴォレアス": "ヴォレアス北海道",
+    "大阪Ｂ": "大阪ブルテオン",
+    "VC長野": "VC長野トライデンツ",
+    "刈谷": "クインシーズ刈谷",
+}
+
+def _volleyballmagazine_date(line):
+    m = re.search(r"(?<!\d)(\d{1,2})\s*/\s*(\d{1,2})(?!\d)", line)
+    if not m:
+        m = re.search(r"(?<!\d)(\d{1,2})月(\d{1,2})日", line)
+    if not m:
+        return None
+    month, day = int(m.group(1)), int(m.group(2))
+    candidate = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+    return candidate if valid_season_date(candidate) else None
+
+def _volleyballmagazine_station(line):
+    compact = re.sub(r"\s+", "", line).replace("　", "")
+    m = re.search(r"JSPORTS([1-4])(?:HD)?", compact, re.I)
+    if m:
+        return f"J SPORTS {m.group(1)}"
+    if re.search(r"GAORA(?:SPORTS)?HD?", compact, re.I):
+        return "GAORA SPORTS"
+    if "サンテレビ" in compact:
+        return "サンテレビジョン"
+    for station in sorted(VALID_STATIONS, key=len, reverse=True):
+        station_compact = re.sub(r"\s+", "", station).replace("　", "")
+        if station_compact and station_compact in compact:
+            return clean_station(station)
+    return None
+
+def _volleyballmagazine_normalize_match_line(line):
+    text = re.sub(r"\s+", "", line)
+    for alias, canonical in sorted(
+        VOLLEYBALLMAGAZINE_TEAM_ALIASES.items(), key=lambda item: len(item[0]), reverse=True
+    ):
+        # Do not rewrite a full canonical name that already appears in this line.
+        if canonical in text:
+            continue
+        text = text.replace(alias, canonical)
+    return text
+
+def _parse_volleyballmagazine_tv_schedule(title, text):
+    """Return only explicitly dated TV entries from a Volleyball Magazine month article.
+
+    The article publication date and the streaming-only section are deliberately
+    excluded. Each row needs a known station and two recognized teams.
+    Result tuples: (station, broadcast_date, (home, away), broadcast_time).
+    """
+    title_text = re.sub(r"\s+", " ", str(title or "")).strip()
+    title_match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title_text)
+    if not title_match:
+        # Some links carry a longer title; the article body can supply the title.
+        title_match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", str(text or ""))
+    if not title_match:
+        return []
+
+    body = str(text or "")
+    season_section = re.search(
+        r"大同生命SVリーグ\s*2026\s*[-‐–－ー]\s*2027", body, re.I
+    )
+    if not season_section:
+        return []
+    section = body[season_section.end():]
+    stop = re.search(
+        r"(?:＜|<)\s*(?:J\s*SPORTS\s*オンデマンド|SVリーグ\s*男子|SVリーグ\s*女子|SVグロース\s*男子|SVグロース\s*女子|Volleyball\s*world)",
+        section,
+        re.I,
+    )
+    if stop:
+        section = section[:stop.start()]
+
+    lines = [re.sub(r"\s+", " ", line).strip() for line in section.splitlines()]
+    lines = [line for line in lines if line]
+    date_indices = []
+    for index, line in enumerate(lines):
+        d = _volleyballmagazine_date(line)
+        if d:
+            date_indices.append((index, d))
+    if not date_indices:
+        return []
+
+    found = []
+    seen = set()
+    for pos, (index, d) in enumerate(date_indices):
+        end = date_indices[pos + 1][0] if pos + 1 < len(date_indices) else len(lines)
+        block = lines[index:end]
+        if not block:
+            continue
+        station = None
+        for line in block[:3]:
+            station = _volleyballmagazine_station(line)
+            if station:
+                break
+        if not station:
+            continue
+
+        match = None
+        for line in block:
+            if not re.search(r"(?:\bvs\.?\b|\bVS\.?\b|×|対)", line, re.I):
+                continue
+            candidate_line = line
+            # Avoid interpreting a station name such as 群馬テレビ as a team alias.
+            for station_alias in sorted(VALID_STATIONS, key=len, reverse=True):
+                candidate_line = candidate_line.replace(station_alias, "")
+            candidate_line = _volleyballmagazine_normalize_match_line(candidate_line)
+            match = parse_match(candidate_line)
+            if match:
+                break
+        if not match:
+            continue
+
+        # Airtime comes only from the date/station header, never from a match line.
+        airtime = parse_time(block[0]) if re.search(
+            r"(?<!\d)\d{1,2}:\d{2}\s*(?:～|〜|~|-)|(?<!\d)\d{1,2}時\d{1,2}分", block[0]
+        ) else ""
+        key = (station, d, match[0], match[1], airtime)
+        if key not in seen:
+            seen.add(key)
+            found.append((station, d, match, airtime))
+    return found
+
+def scrape_volleyballmagazine(page, rows):
+    """Discover and parse the monthly TV schedule from Volleyball Magazine."""
+    candidate_articles = {}
+    successful_listings = 0
+    for listing_url in (VOLLEYBALLMAGAZINE_SCHEDULE_URL, VOLLEYBALLMAGAZINE_TV_CATEGORY_URL):
+        try:
+            page.goto(listing_url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(300)
+            successful_listings += 1
+            links = page.locator('a[href*="/"]')
+            for i in range(links.count()):
+                link = links.nth(i)
+                try:
+                    href = link.get_attribute("href") or ""
+                    title = re.sub(r"\s+", " ", link.inner_text(timeout=1200)).strip()
+                    if not re.search(r"20\d{2}年\s*\d{1,2}月のバレーボール番組", title):
+                        continue
+                    absolute = urllib.parse.urljoin(listing_url, href)
+                    parsed = urllib.parse.urlparse(absolute)
+                    if (parsed.hostname or "").casefold() not in {
+                        "volleyballmagazine.jp", "www.volleyballmagazine.jp"
+                    }:
+                        continue
+                    if not re.fullmatch(r"/\d+/?", parsed.path):
+                        continue
+                    article_url = "https://volleyballmagazine.jp" + parsed.path.rstrip("/") + "/"
+                    candidate_articles.setdefault(article_url, title)
+                except Exception:
+                    continue
+        except Exception as e:
+            print("VOLLEYBALLMAGAZINE LIST ERROR:", listing_url, e)
+
+    if successful_listings == 0:
+        raise RuntimeError("Could not fetch Volleyball Magazine schedule/category listings")
+    if not candidate_articles:
+        message = "No monthly Volleyball Magazine TV schedule article was discovered from either listing"
+        print("VOLLEYBALLMAGAZINE ARTICLE DISCOVERY INCOMPLETE:", message)
+        flag_source_discovery_degraded(message)
+        return
+
+    def month_key(item):
+        title = item[1]
+        match = re.search(r"(20\d{2})年\s*(\d{1,2})月のバレーボール番組", title)
+        return (int(match.group(1)), int(match.group(2))) if match else (0, 0)
+
+    # The newest few month articles provide a bounded historical cross-check
+    # without turning every daily run into a crawl of the entire archive.
+    articles = sorted(candidate_articles.items(), key=month_key, reverse=True)[:3]
+    parsed_articles = 0
+    accepted = 0
+    review_articles = 0
+    for article_url, title in articles:
+        try:
+            page.goto(article_url, wait_until="domcontentloaded", timeout=45000)
+            page.wait_for_timeout(300)
+            body = page.locator("body").inner_text(timeout=10000)
+            items = _parse_volleyballmagazine_tv_schedule(title, body)
+            if not items:
+                review_articles += 1
+                print("VOLLEYBALLMAGAZINE NEEDS REVIEW:", article_url, "|", title,
+                      "| no explicitly dated TV matchup parsed")
+                continue
+            parsed_articles += 1
+            for station, d, match, airtime in items:
+                add(rows, station, d, match, article_url, airtime)
+                accepted += 1
+                print("VOLLEYBALLMAGAZINE CANDIDATE:", station, d, airtime,
+                      match[0], "vs", match[1], "|", article_url)
+        except Exception as e:
+            review_articles += 1
+            print("VOLLEYBALLMAGAZINE ARTICLE ERROR:", article_url, e)
+
+    print("VOLLEYBALLMAGAZINE LISTINGS OK:", successful_listings)
+    print("VOLLEYBALLMAGAZINE MONTH ARTICLES DISCOVERED:", len(candidate_articles))
+    print("VOLLEYBALLMAGAZINE MONTH ARTICLES PROCESSED:", len(articles))
+    print("VOLLEYBALLMAGAZINE MONTH ARTICLES PARSED:", parsed_articles)
+    print("VOLLEYBALLMAGAZINE MONTH ARTICLES NEEDS REVIEW:", review_articles)
+    print("VOLLEYBALLMAGAZINE TV CANDIDATES:", accepted)
+    if parsed_articles == 0:
+        flag_source_discovery_degraded(
+            "Volleyball Magazine listings loaded, but no monthly TV article yielded a dated matchup"
+        )
+
+
 GUNMA_TV_URL = "https://www.gtv.co.jp/timetable/"
 
 def _parse_gunma_tv_airtime(text):
@@ -1733,6 +1973,8 @@ def reconcile(rows):
             return 7
         if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp")):
             return 6
+        if "volleyballmagazine.jp" in source:
+            return 3
         if any(token in source for token in ("known-volleyballking-tvk", "previously-confirmed-user-shared-tv-listing")):
             return 5
         if "svleague.jp" in source:
@@ -2252,6 +2494,11 @@ def main():
         except Exception as e:
             print("VOLLEYBALLKING ERROR:", e)
             flag_source_discovery_degraded(f"VolleyballKing crawl failed: {e}")
+        try:
+            scrape_volleyballmagazine(page, rows)
+        except Exception as e:
+            print("VOLLEYBALLMAGAZINE ERROR:", e)
+            flag_source_discovery_degraded(f"Volleyball Magazine source failed: {e}")
         try:
             scrape_gunma_tv(page, rows)
         except Exception as e:
