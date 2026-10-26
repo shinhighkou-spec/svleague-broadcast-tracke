@@ -1361,7 +1361,7 @@ def _volleyballmagazine_station(line):
     m = re.search(r"JSPORTS([1-4])(?:HD)?", compact, re.I)
     if m:
         return f"J SPORTS {m.group(1)}"
-    if re.search(r"GAORA(?:SPORTS)?HD?", compact, re.I):
+    if re.search(r"GAORA(?:SPORTS)?(?:HD)?", compact, re.I):
         return "GAORA SPORTS"
     if "サンテレビ" in compact:
         return "サンテレビジョン"
@@ -1439,7 +1439,7 @@ def _parse_volleyballmagazine_tv_schedule(title, text):
 
         match = None
         for line in block:
-            if not re.search(r"(?:\bvs\.?\b|\bVS\.?\b|×|対)", line, re.I):
+            if not re.search(r"(?:vs\.?|VS\.?|×|対)", line, re.I):
                 continue
             candidate_line = line
             # Avoid interpreting a station name such as 群馬テレビ as a team alias.
