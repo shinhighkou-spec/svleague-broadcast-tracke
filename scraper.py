@@ -1110,6 +1110,29 @@ def scrape_gunma_tv(page, rows):
         print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", GUNMA_TV_URL)
     print("GUNMA TV PARSED ROWS:", len(parsed))
 
+
+def _canonical_search_result_url(href):
+    """Strip tracking query/fragment and trailing slash for safe source URL deduplication."""
+    raw = str(href or "").strip()
+    parsed = urllib.parse.urlparse(raw)
+    if not parsed.scheme or not parsed.netloc:
+        return raw.split("#", 1)[0].split("?", 1)[0].rstrip("/")
+    path = parsed.path.rstrip("/") or "/"
+    return urllib.parse.urlunparse((parsed.scheme.casefold(), parsed.netloc.casefold(), path, "", "", ""))
+
+def _unique_search_results(results, seen_urls):
+    """Avoid opening the same result page repeatedly across overlapping search queries."""
+    unique = []
+    for result in results:
+        if len(result) < 3:
+            continue
+        canonical = _canonical_search_result_url(result[1])
+        if not canonical or canonical in seen_urls:
+            continue
+        seen_urls.add(canonical)
+        unique.append(result)
+    return unique
+
 def scrape_social_and_regional(page, rows):
     """Daily discovery across team X/Instagram and regional TV sources.
     Search results are candidates only. A result enters the dataset only after
@@ -1124,6 +1147,7 @@ def scrape_social_and_regional(page, rows):
             team_items.append((canonical, [canonical]))
 
     seen = set()
+    seen_result_urls = set()
     candidate_count = 0
     verified_count = 0
     accepted = 0
@@ -1132,7 +1156,7 @@ def scrape_social_and_regional(page, rows):
 
     def process_results(results, allow_unknown_time=False):
         nonlocal candidate_count, verified_count, accepted
-        for title, href, snippet in results:
+        for title, href, snippet in _unique_search_results(results, seen_result_urls):
             candidate_count += 1
             item = _verify_search_result(page, title, href, snippet, require_time=not allow_unknown_time)
             if not item:

@@ -159,3 +159,16 @@ def test_source_discovery_degradation_is_exposed_to_github_actions(monkeypatch, 
     assert env_file.read_text(encoding="utf-8").splitlines() == [
         "SV_SOURCE_DISCOVERY_DEGRADED=true"
     ]
+
+
+def test_social_search_results_are_deduplicated_without_losing_distinct_urls():
+    from scraper import _unique_search_results
+    seen = set()
+    results = [
+        ("first", "https://x.com/team/status/123?s=20", "snippet one"),
+        ("same page", "https://x.com/team/status/123#timeline", "snippet two"),
+        ("different page", "https://x.com/team/status/124", "snippet three"),
+    ]
+    unique = _unique_search_results(results, seen)
+    assert [item[0] for item in unique] == ["first", "different page"]
+    assert _unique_search_results([results[1]], seen) == []
