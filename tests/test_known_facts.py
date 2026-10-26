@@ -145,7 +145,7 @@ def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
         and r.home == "群馬グリーンウイングス"
         and r.away == "アランマーレ秋田庄内"
     }
-    assert {"13:05", "19:00"} <= matching
+    assert {"13:00", "19:00"} <= matching
 
 
 

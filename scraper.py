@@ -799,6 +799,16 @@ def _extract_volleyballking_jsonld_articles(script_texts):
             print("VOLLEYBALLKING JSON-LD PARSE ERROR:", type(e).__name__)
     return list(found.items())
 
+
+def _merge_volleyballking_sitemap_candidates(target, sitemap_rows, visited):
+    """Keep child sitemaps even when the index omits lastmod metadata."""
+    for url, lastmod in sitemap_rows:
+        if url in visited:
+            continue
+        old = target.get(url, "")
+        if url not in target or lastmod > old:
+            target[url] = lastmod
+
 def _discover_volleyballking_supplemental_articles(page):
     """Probe robots.txt, declared/common sitemaps and RSS/Atom feeds.
 
@@ -845,11 +855,7 @@ def _discover_volleyballking_supplemental_articles(page):
                 return
             valid_sources.append((url, kind))
             print("VOLLEYBALLKING DISCOVERY SOURCE OK:", url, kind, "articles", len(articles), "child_sitemaps", len(sitemaps))
-            for sitemap_url, lastmod in sitemaps:
-                if sitemap_url not in visited:
-                    old = child_sitemaps.get(sitemap_url, "")
-                    if lastmod > old:
-                        child_sitemaps[sitemap_url] = lastmod
+            _merge_volleyballking_sitemap_candidates(child_sitemaps, sitemaps, visited)
             for article_url, lastmod in articles:
                 old = article_lastmod.get(article_url, "")
                 if article_url not in article_lastmod or lastmod > old:
@@ -862,7 +868,7 @@ def _discover_volleyballking_supplemental_articles(page):
 
     # Follow only a bounded number of newest child sitemaps; never crawl an
     # unbounded sitemap tree in a scheduled run.
-    for url, _ in sorted(child_sitemaps.items(), key=lambda item: item[1], reverse=True)[:5]:
+    for url, _ in sorted(child_sitemaps.items(), key=lambda item: (item[1] or "", item[0]), reverse=True)[:5]:
         inspect_source(url)
 
     ordered = sorted(article_lastmod.items(), key=lambda item: item[1] or "", reverse=True)

@@ -8,6 +8,7 @@ from scraper import (
     Broadcast,
     _extract_volleyballking_broadcast,
     _extract_volleyballking_jsonld_articles,
+    _merge_volleyballking_sitemap_candidates,
     _parse_volleyballking_discovery_document,
     reconcile,
 )
@@ -126,3 +127,26 @@ def test_public_schedule_labels_broadcast_start_time_not_match_start(monkeypatch
     assert "<div>試合開始</div>" not in html
     assert "放送開始時刻" in html
     assert '<div class="time">14:35</div>' in html
+
+
+def test_volleyballking_child_sitemaps_without_lastmod_are_not_dropped():
+    target = {}
+    _merge_volleyballking_sitemap_candidates(
+        target,
+        [
+            ("https://volleyballking.jp/post-sitemap-2026-10.xml", ""),
+            ("https://volleyballking.jp/post-sitemap-2026-09.xml", "2026-09-30"),
+            ("https://volleyballking.jp/visited-sitemap.xml", ""),
+        ],
+        {"https://volleyballking.jp/visited-sitemap.xml"},
+    )
+    assert target == {
+        "https://volleyballking.jp/post-sitemap-2026-10.xml": "",
+        "https://volleyballking.jp/post-sitemap-2026-09.xml": "2026-09-30",
+    }
+    _merge_volleyballking_sitemap_candidates(
+        target,
+        [("https://volleyballking.jp/post-sitemap-2026-10.xml", "2026-10-26")],
+        set(),
+    )
+    assert target["https://volleyballking.jp/post-sitemap-2026-10.xml"] == "2026-10-26"
