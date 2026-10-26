@@ -1668,7 +1668,7 @@ def _log_gunma_tv_timetable_attachments(page, base_url):
                 lowered = absolute.casefold()
                 if not any(token in lowered for token in ("timetable", ".pdf", "2026", "2027", "schedule")):
                     continue
-                title = re.sub(r"\\s+", " ", link.inner_text(timeout=300)).strip()
+                title = re.sub(r"\s+", " ", link.inner_text(timeout=300)).strip()
                 print("GUNMA TV ATTACHMENT NEEDS REVIEW:", absolute, "|", title[:120])
             except Exception:
                 continue
