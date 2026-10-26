@@ -1847,6 +1847,10 @@ KNOWN_VERIFIED_AIRTIME_SOURCES = {
 
 def normalize_time_semantics(row):
     """Migrate legacy rows so only verified programme-start times remain in broadcast_time."""
+    canonical_station = clean_station(row.station)
+    if canonical_station != row.station:
+        row = Broadcast(canonical_station, row.broadcast_date, row.home, row.away,
+                        row.source, row.broadcast_time, row.match_start_time)
     identity = (row.station, row.broadcast_date, row.home, row.away)
     source = row.source or ""
     source_lower = source.casefold()
