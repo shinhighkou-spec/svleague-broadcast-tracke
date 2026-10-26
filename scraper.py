@@ -42,6 +42,7 @@ class Broadcast:
     away: str
     source: str
     broadcast_time: str = ""
+    match_start_time: str = ""
 
 TEAM_MAP = {
     "大阪Ｂ": "大阪ブルテオン",
@@ -202,13 +203,13 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     tm = parse_time(text)
     return stations[0], d, match, tm
 
-def add(rows, station, d, match, source, t=""):
+def add(rows, station, d, match, source, t="", match_start_time=""):
     station = clean_station(station)
     if station not in VALID_STATIONS:
         return
     if not d or not valid_season_date(d) or not match:
         return
-    rows.append(Broadcast(station, d, match[0], match[1], source, t))
+    rows.append(Broadcast(station, d, match[0], match[1], source, t, match_start_time))
 
 def official_article_urls(page):
     """Discover official SV.LEAGUE news articles from the official news index.
@@ -302,7 +303,9 @@ def scrape_official_article(page, rows, url):
                 item = extract_broadcast_item(row_text, station_for_row)
                 if item:
                     parsed_station, d, match, tm = item
-                    add(rows, parsed_station, d, match, url, tm)
+                    # SV.LEAGUE's table column is explicitly labelled "試合開始".
+                    # Keep this time separately; it is not the TV programme start.
+                    add(rows, parsed_station, d, match, url, "", tm)
         except Exception as e:
             print("OFFICIAL TABLE ERROR:", url, e)
 
@@ -570,23 +573,92 @@ def _bing_results(page, query, limit=8):
                 page.wait_for_timeout(1000)
     raise RuntimeError(f"Bing search failed after retry: {last_error}")
 
+def _extract_explicit_airtime(text):
+    """Return a time only when the source labels it as a broadcast/programme start."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    patterns = (
+        r"(?:放送開始|放送時間|中継開始)[^\d]{0,20}(\d{1,2}):(\d{2})",
+        r"(\d{1,2})時(\d{1,2})分?\s*(?:から|より)\s*(?:放送|生中継|中継)",
+        r"(?:放送|生中継|中継)[^。\n]{0,35}?(\d{1,2}):(\d{2})\s*(?:～|〜|-|から)",
+    )
+    for index, pattern in enumerate(patterns):
+        m = re.search(pattern, text)
+        if not m:
+            continue
+        if index == 1:
+            hour, minute = int(m.group(1)), int(m.group(2) or 0)
+        else:
+            hour, minute = int(m.group(1)), int(m.group(2))
+        if hour > 23 or minute > 59:
+            continue
+        return f"{hour:02d}:{minute:02d}"
+    return ""
+
+
+def _extract_search_broadcast_date(text, match):
+    """Find a season date tied to a matchup, not a bare article publication date."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
+    for sentence in re.split(r"(?<=[。！？])", text):
+        if not any(st in sentence for st in VALID_STATIONS):
+            continue
+        if not any(word in sentence for word in BROADCAST_WORDS):
+            continue
+        date_matches = list(re.finditer(r"(?<!\d)(\d{1,2})月(\d{1,2})日", sentence))
+        for index, m in enumerate(date_matches):
+            month, day = int(m.group(1)), int(m.group(2))
+            candidate = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+            if not valid_season_date(candidate):
+                continue
+            end = date_matches[index + 1].start() if index + 1 < len(date_matches) else len(sentence)
+            segment = sentence[m.end():end]
+            if parse_match(segment) == match:
+                return candidate
+
+    # Full dates are accepted only when explicitly labelled as a broadcast/event date.
+    for sentence in re.split(r"(?<=[。！？])", text):
+        if not any(st in sentence for st in VALID_STATIONS):
+            continue
+        if not any(word in sentence for word in BROADCAST_WORDS):
+            continue
+        for m in re.finditer(r"(20\d{2})[./年-](\d{1,2})[./月-](\d{1,2})", sentence):
+            prefix = sentence[max(0, m.start() - 24):m.start()]
+            if not re.search(r"(?:放送日|放送日時|中継日|開催日)", prefix):
+                continue
+            candidate = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            if not valid_season_date(candidate):
+                continue
+            end = sentence.find("。", m.end())
+            segment = sentence[m.end():end if end >= 0 else len(sentence)]
+            if parse_match(segment) == match:
+                return candidate
+    return None
+
+
 def _extract_search_broadcast(text, require_time=False):
-    """Extract a candidate from text. This is only a candidate until its URL is opened."""
-    d = parse_date(text)
+    """Extract a source-page candidate; time is populated only if airtime is explicit."""
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
     match = parse_match(text)
-    if not d or not match:
+    if not match:
         return None
+    d = _extract_search_broadcast_date(text, match)
+    if not d:
+        return None
+
     station = None
     for st in sorted(VALID_STATIONS, key=len, reverse=True):
         if st in text:
             station = st
             break
+    if not station and re.search(r"\btvk\b", text, re.I):
+        station = "テレビ神奈川"
     if not station or not any(w in text for w in BROADCAST_WORDS):
         return None
-    tm = parse_time(text)
+
+    tm = _extract_explicit_airtime(text)
     if require_time and not tm:
         return None
     return station, d, match, tm
+
 
 def _page_evidence_text(page):
     """Collect visible text plus useful metadata from the opened source page."""
@@ -1300,8 +1372,9 @@ def _unique_search_results(results, seen_urls, allow_unknown_time=False):
 
 def scrape_social_and_regional(page, rows):
     """Daily discovery across team X/Instagram and regional TV sources.
-    Search results are candidates only. A result enters the dataset only after
-    opening its source URL and confirming station, date, start time and both teams."""
+    Search results are candidates only. A row is accepted only after opening its
+    source URL and confirming station, broadcast date, both teams and TV context.
+    The time remains blank unless the source explicitly labels a broadcast start."""
     team_items = []
     seen_team = set()
     for canonical in sorted(SEARCH_TEAM_ALIASES):
@@ -1323,7 +1396,7 @@ def scrape_social_and_regional(page, rows):
         nonlocal candidate_count, verified_count, accepted
         for title, href, snippet in _unique_search_results(results, seen_result_urls, allow_unknown_time):
             candidate_count += 1
-            item = _verify_search_result(page, title, href, snippet, require_time=not allow_unknown_time)
+            item = _verify_search_result(page, title, href, snippet, require_time=False)
             if not item:
                 continue
             verified_count += 1
@@ -1434,12 +1507,59 @@ def scrape_social_and_regional(page, rows):
     print("SOCIAL/REGIONAL DISCOVERY SEARCH FAILURES:", search_failures)
 
 
+KNOWN_VERIFIED_AIRTIME_SOURCES = {
+    ("J SPORTS 2", "2026-10-17", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"):
+        "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
+    ("J SPORTS 1", "2026-10-18", "NECレッドロケッツ川崎", "ヴィクトリーナ姫路"):
+        "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
+    ("J SPORTS 2", "2026-10-24", "ウルフドッグス名古屋", "東京グレートベアーズ"):
+        "https://www.jsports.co.jp/volleyball/svleague_men/",
+    ("J SPORTS 2", "2026-10-25", "ウルフドッグス名古屋", "東京グレートベアーズ"):
+        "https://www.jsports.co.jp/volleyball/svleague_men/",
+    ("J SPORTS 4", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ"):
+        "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
+}
+
+
+def normalize_time_semantics(row):
+    """Migrate legacy rows so only verified programme-start times remain in broadcast_time."""
+    identity = (row.station, row.broadcast_date, row.home, row.away)
+    source = row.source or ""
+    source_lower = source.casefold()
+
+    if (
+        row.station == "群馬テレビ"
+        and row.broadcast_date == "2026-10-24"
+        and row.home == "群馬グリーンウイングス"
+        and row.away == "アランマーレ秋田庄内"
+        and "x.com/vbm_link/status/2113610880101568860" in source
+        and row.broadcast_time == "13:00"
+        and not row.match_start_time
+    ):
+        return Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                         row.source, row.broadcast_time, "13:05")
+
+    if row.match_start_time or not row.broadcast_time:
+        return row
+    if "svleague.jp/news/detail/100609" in source_lower:
+        return Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                         row.source, "", row.broadcast_time)
+    if source == "known-official-fixture":
+        verified_source = KNOWN_VERIFIED_AIRTIME_SOURCES.get(identity)
+        if verified_source:
+            return Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                             verified_source, row.broadcast_time, "")
+        return Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                         row.source, "", row.broadcast_time)
+    return row
+
+
 def known_facts():
     # Authoritative facts from SV.LEAGUE official announcements and broadcaster schedules.
     # An official SV.LEAGUE broadcast announcement is sufficient proof a broadcast exists;
     # broadcaster-side listings are supplemental only.
     src = "known-official-fixture"
-    return [
+    facts = [
         Broadcast("フジテレビNEXT","2026-10-24","北海道イエロースターズ","大阪ブルテオン",src,"14:05"),
         Broadcast("フジテレビNEXT","2026-10-25","北海道イエロースターズ","大阪ブルテオン",src,"13:05"),
         Broadcast("フジテレビNEXT","2026-10-31","大阪ブルテオン","ウルフドッグス名古屋",src,"12:05"),
@@ -1529,9 +1649,10 @@ def known_facts():
         Broadcast("フジテレビNEXT", "2027-02-27", "ジェイテクトSTINGS愛知", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
         Broadcast("フジテレビNEXT", "2027-02-28", "ジェイテクトSTINGS愛知", "大阪ブルテオン", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
     ]
+    return [normalize_time_semantics(r) for r in facts]
 
 def reconcile(rows):
-    # Preserve distinct broadcasts on the same date/card when their times differ.
+    """Merge sources by broadcast identity while keeping airing and match times separate."""
     banned = {
         ("フジテレビNEXT","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
         ("NHK BS","2026-09-18","PFUブルーキャッツ石川かほく","SAGA久光スプリングス"),
@@ -1540,61 +1661,117 @@ def reconcile(rows):
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
     out = {}
-    for r in load_previous():
-        key4 = (r.station, r.broadcast_date, r.home, r.away)
-        if key4 not in banned:
-            out[key4 + (r.broadcast_time,)] = r
-    for r in rows:
-        key4 = (r.station, r.broadcast_date, r.home, r.away)
+
+    def identity(row):
+        return (row.station, row.broadcast_date, row.home, row.away)
+
+    def is_replay(row):
+        source = (row.source or "").casefold()
+        return any(tag in source for tag in ("replay", "録画", "再放送", "recorded"))
+
+    def source_priority(row):
+        source = (row.source or "").casefold()
+        if "program_guide/channel" in source or "gtv.co.jp/timetable" in source:
+            return 7
+        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp")):
+            return 6
+        if any(token in source for token in ("known-volleyballking-tvk", "previously-confirmed-user-shared-tv-listing")):
+            return 5
+        if "svleague.jp" in source:
+            return 4
+        if "x.com" in source or "instagram.com" in source:
+            return 3
+        if "provisional" in source:
+            return 0
+        if "known-official-fixture" in source:
+            return 1
+        return 2
+
+    def upsert(raw_row):
+        row = normalize_time_semantics(raw_row)
+        key4 = identity(row)
         if key4 in banned:
-            continue
-        if r.broadcast_time:
-            # Replace only a provisional placeholder once a confirmed airtime appears.
-            for old_key, old_row in list(out.items()):
-                if old_key[:4] == key4 and not old_row.broadcast_time and "provisional-gunma-tv-home-broadcast" in old_row.source:
-                    del out[old_key]
-        out[key4 + (r.broadcast_time,)] = r
-    for r in known_facts():
-        key4 = (r.station, r.broadcast_date, r.home, r.away)
-        if key4 in banned:
-            continue
-        if not r.broadcast_time and "provisional-gunma-tv-home-broadcast" in r.source:
-            if any(k[:4] == key4 and existing.broadcast_time for k, existing in out.items()):
-                continue
-        if r.broadcast_time:
-            # An explicit official SV.LEAGUE time is authoritative over a
-            # broadcaster guide's different start time for the same airing.
-            # Keep another time only when its source explicitly identifies a replay.
-            for old_key, old_row in list(out.items()):
-                if old_key[:4] != key4 or old_key[4] == r.broadcast_time:
-                    continue
-                old_source = old_row.source.casefold()
-                new_source = r.source.casefold()
-                old_is_replay = any(tag in old_source for tag in ("replay", "録画", "再放送", "recorded"))
-                new_is_replay = any(tag in new_source for tag in ("replay", "録画", "再放送", "recorded"))
-                if not old_is_replay and not new_is_replay:
-                    del out[old_key]
-        out[key4 + (r.broadcast_time,)] = r
-    # If a J SPORTS channel guide confirms the exact same airing time,
-    # replace the earlier channel-unknown placeholder rather than listing it twice.
+            return
+        related = [(key, value) for key, value in out.items() if key[:4] == key4]
+        known_match_start = row.match_start_time or next(
+            (value.match_start_time for _, value in related if value.match_start_time), ""
+        )
+
+        if not row.broadcast_time:
+            timed = [(key, value) for key, value in related if value.broadcast_time]
+            if timed:
+                for key, value in timed:
+                    if known_match_start and not value.match_start_time:
+                        out[key] = Broadcast(value.station, value.broadcast_date, value.home, value.away,
+                                             value.source, value.broadcast_time, known_match_start)
+                return
+            key = key4 + ("",)
+            existing = out.get(key)
+            if existing:
+                best = row if source_priority(row) > source_priority(existing) else existing
+                match_start = existing.match_start_time or row.match_start_time
+                out[key] = Broadcast(best.station, best.broadcast_date, best.home, best.away,
+                                     best.source, "", match_start)
+            else:
+                out[key] = Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                                     row.source, "", known_match_start)
+            return
+
+        blank_key = key4 + ("",)
+        blank = out.pop(blank_key, None)
+        if blank and not known_match_start:
+            known_match_start = blank.match_start_time
+
+        same_key = key4 + (row.broadcast_time,)
+        existing_same = out.get(same_key)
+        if existing_same:
+            best = row if source_priority(row) > source_priority(existing_same) else existing_same
+            match_start = existing_same.match_start_time or row.match_start_time or known_match_start
+            out[same_key] = Broadcast(best.station, best.broadcast_date, best.home, best.away,
+                                      best.source, row.broadcast_time, match_start)
+            return
+
+        conflicts = [
+            (key, value) for key, value in out.items()
+            if key[:4] == key4 and value.broadcast_time and value.broadcast_time != row.broadcast_time
+        ]
+        if conflicts and not is_replay(row) and not any(is_replay(value) for _, value in conflicts):
+            best_key, best_row = max(conflicts, key=lambda item: source_priority(item[1]))
+            if source_priority(row) <= source_priority(best_row):
+                if known_match_start and not best_row.match_start_time:
+                    out[best_key] = Broadcast(best_row.station, best_row.broadcast_date, best_row.home,
+                                              best_row.away, best_row.source, best_row.broadcast_time,
+                                              known_match_start)
+                return
+            for key, _ in conflicts:
+                del out[key]
+
+        out[same_key] = Broadcast(row.station, row.broadcast_date, row.home, row.away,
+                                  row.source, row.broadcast_time, known_match_start)
+
+    for record in load_previous() + list(rows) + known_facts():
+        upsert(record)
+
     channel_rows = [
-        r for r in out.values()
-        if r.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
+        row for row in out.values()
+        if row.station in {"J SPORTS 1", "J SPORTS 2", "J SPORTS 3", "J SPORTS 4"}
     ]
-    replaced_placeholders = 0
-    for key, r in list(out.items()):
-        if r.station != "J SPORTS（チャンネル未公表）":
+    for key, row in list(out.items()):
+        if row.station != "J SPORTS（チャンネル未公表）":
             continue
         if any(
-            other.broadcast_date == r.broadcast_date
-            and other.home == r.home and other.away == r.away
-            and other.broadcast_time == r.broadcast_time
+            other.broadcast_date == row.broadcast_date
+            and other.home == row.home and other.away == row.away
+            and other.broadcast_time == row.broadcast_time
             for other in channel_rows
         ):
             del out[key]
-            replaced_placeholders += 1
-    print("J SPORTS UNKNOWN-CHANNEL PLACEHOLDERS REPLACED:", replaced_placeholders)
-    return sorted(out.values(), key=lambda r: (r.broadcast_date, r.broadcast_time, r.station, r.home, r.away))
+
+    return sorted(out.values(), key=lambda row: (
+        row.broadcast_date, row.broadcast_time or row.match_start_time,
+        row.station, row.home, row.away
+    ))
+
 
 # Required coverage from the official 2026-27 broadcast announcement.
 # Identity keys omit time/source so text changes do not hide missing records.
@@ -1692,7 +1869,7 @@ def load_previous():
     if not p.exists():
         return []
     try:
-        return [Broadcast(**x) for x in json.loads(p.read_text(encoding="utf-8"))]
+        return [normalize_time_semantics(Broadcast(**x)) for x in json.loads(p.read_text(encoding="utf-8"))]
     except Exception:
         return []
 
@@ -1773,9 +1950,9 @@ def write_outputs(rows, team_logos=None):
     )
     with (DATA / "broadcasts.csv").open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
-        w.writerow(["放送局","放送日","ホームチーム","アウェイチーム","開始時刻"])
+        w.writerow(["放送局","放送日","ホームチーム","アウェイチーム","放送開始","試合開始"])
         for r in rows:
-            w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away, r.broadcast_time])
+            w.writerow([r.station, r.broadcast_date.replace("-","/"), r.home, r.away, r.broadcast_time, r.match_start_time])
 
     html = """<!doctype html>
 <html lang="ja">
@@ -1860,7 +2037,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 <section class="hero"><div class="shell">
  <div class="eyebrow">SV.LEAGUE 2026–27</div>
  <h1>テレビ放送スケジュール</h1>
- <p>放送日・放送局・放送開始時刻・対戦カードをひと目で確認</p>
+ <p>放送開始時刻は放送局が明示した場合のみ表示。試合開始時刻とは別管理</p>
 </div></section>
 <main class="shell">
  <div class="controls">
@@ -1874,7 +2051,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
  </div>
  <div class="summary"><div><h2>放送予定</h2><p>放送日順</p></div><div class="count" id="count"></div></div>
  <section class="schedule" id="schedule">__ROWS__</section>
- <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。__PROVISIONAL_NOTE__</div>
+ <div class="footer"><strong>※ 放送日時・対戦カードは変更になる場合があります。</strong><br>「—」は放送開始時刻が未確認であることを示します。試合開始時刻を放送開始時刻として代用していません。最新情報は各放送局の公式サイトおよびSV.LEAGUE公式発表をご確認ください。__PROVISIONAL_NOTE__</div>
 </main>
 <script>
 const cards=[...document.querySelectorAll('.day-card')];
