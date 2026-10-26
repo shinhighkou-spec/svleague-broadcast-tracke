@@ -101,7 +101,7 @@ def test_tv_broadcast_list_excludes_on_demand_only_services():
     assert not any("オンデマンド" in station or "配信" in station for station in VALID_STATIONS)
 
 
-def test_gunma_tv_broadcast_is_preserved_as_known_official_social_post():
+def test_gunma_tv_broadcast_uses_official_airtime_and_keeps_social_confirmation():
     from scraper import known_facts
     rows = known_facts()
     assert any(
@@ -109,7 +109,8 @@ def test_gunma_tv_broadcast_is_preserved_as_known_official_social_post():
         and r.broadcast_date == "2026-10-24"
         and r.home == "群馬グリーンウイングス"
         and r.away == "アランマーレ秋田庄内"
-        and r.broadcast_time == "13:05"
+        and r.broadcast_time == "13:00"
+        and "www.gtv.co.jp/timetable/" in r.source
         and "x.com/vbm_link/status/2113610880101568860" in r.source
         for r in rows
     )
@@ -134,7 +135,7 @@ def test_published_data_has_no_on_demand_only_entries_and_keeps_gunma_tv():
 
 def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
     from scraper import Broadcast, reconcile
-    live = Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "official-live", "13:05")
+    live = Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "official-live", "13:00")
     replay = Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "official-replay", "19:00")
     rows = reconcile([live, replay])
     matching = {
@@ -216,3 +217,25 @@ def test_jsports_official_section_parser_accepts_english_league_label():
     assert parse_jsports_official_section(section) == [
         ("2026-11-01", ("ウルフドッグス名古屋", "東京グレートベアーズ"), "12:45")
     ]
+
+
+def test_gunma_tv_parser_uses_airing_start_not_match_start():
+    from scraper import _parse_gunma_tv_schedule
+    text = (
+        "群馬テレビ 番組表 2026年10月 "
+        "10月24日(土) ホーム開幕戦 群馬グリーンウイングス×アランマーレ秋田庄内 "
+        "午後1時～生中継 試合開始13:05 "
+        "10月13日(火) 9時30分～放送開始 おいしい給食season4"
+    )
+    assert _parse_gunma_tv_schedule(text) == [
+        ("2026-10-24", ("群馬グリーンウイングス", "アランマーレ秋田庄内"), "13:00")
+    ]
+
+
+def test_gunma_tv_parser_does_not_infer_airtime_from_match_start_alone():
+    from scraper import _parse_gunma_tv_schedule
+    text = (
+        "10月24日(土) 群馬グリーンウイングス×アランマーレ秋田庄内 "
+        "試合開始13:05"
+    )
+    assert _parse_gunma_tv_schedule(text) == []

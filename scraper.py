@@ -1017,6 +1017,80 @@ def scrape_volleyballking(page, rows):
     print("VOLLEYBALLKING ACCEPTED:", accepted)
     print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
 
+
+GUNMA_TV_URL = "https://www.gtv.co.jp/timetable/"
+
+def _parse_gunma_tv_airtime(text):
+    """Parse an explicitly labeled broadcast-start time from Gunma TV's timetable."""
+    m = re.search(
+        r"(午前|午後)?\s*(\d{1,2})(?::(\d{2})|時(?:(\d{1,2})分?)?)"
+        r"\s*(?:～|〜|~|−|-|から|より)?\s*(?:生中継|中継|放送)",
+        text,
+    )
+    if not m:
+        return ""
+    period, hour_text, colon_minute, japanese_minute = m.groups()
+    hour = int(hour_text)
+    minute = int(colon_minute or japanese_minute or 0)
+    if period == "午後" and hour < 12:
+        hour += 12
+    elif period == "午前" and hour == 12:
+        hour = 0
+    if hour > 23 or minute > 59:
+        return ""
+    return f"{hour:02d}:{minute:02d}"
+
+def _parse_gunma_tv_schedule(text):
+    """Parse only dated Gunma Green Wings TV listings with an explicit airing time."""
+    text = re.sub(r"\s+", " ", text).strip()
+    date_matches = list(re.finditer(
+        r"(?<!\d)(\d{1,2})月(\d{1,2})日(?:\s*[（(][月火水木金土日][）)])?",
+        text,
+    ))
+    found = []
+    seen = set()
+    for i, date_match in enumerate(date_matches):
+        start = date_match.end()
+        end = date_matches[i + 1].start() if i + 1 < len(date_matches) else min(len(text), start + 300)
+        chunk = text[start:end]
+        if "群馬グリーンウイングス" not in chunk:
+            continue
+        if not any(word in chunk for word in ("生中継", "中継", "放送")):
+            continue
+        match = parse_match(chunk)
+        if not match:
+            print("GUNMA TV NEEDS REVIEW (matchup):", date_match.group(0), chunk[:140])
+            continue
+        airtime = _parse_gunma_tv_airtime(chunk)
+        if not airtime:
+            print("GUNMA TV NEEDS REVIEW (airtime):", date_match.group(0), chunk[:140])
+            continue
+        month, day = int(date_match.group(1)), int(date_match.group(2))
+        year = 2026 if month >= 9 else 2027
+        broadcast_date = f"{year:04d}-{month:02d}-{day:02d}"
+        if not valid_season_date(broadcast_date):
+            continue
+        key = (broadcast_date, match, airtime)
+        if key not in seen:
+            seen.add(key)
+            found.append((broadcast_date, match, airtime))
+    return found
+
+def scrape_gunma_tv(page, rows):
+    """Directly read Gunma TV's official monthly timetable; search snippets are not used."""
+    page.goto(GUNMA_TV_URL, wait_until="domcontentloaded", timeout=45000)
+    page.wait_for_timeout(500)
+    body = page.locator("body").inner_text(timeout=10000)
+    if not body.strip():
+        raise RuntimeError("Gunma TV timetable returned empty text")
+    parsed = _parse_gunma_tv_schedule(body)
+    if not parsed:
+        raise RuntimeError("Gunma TV timetable loaded, but no dated matchup with an explicit broadcast-start time could be parsed")
+    for broadcast_date, match, airtime in parsed:
+        add(rows, "群馬テレビ", broadcast_date, match, GUNMA_TV_URL, airtime)
+        print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", GUNMA_TV_URL)
+    print("GUNMA TV PARSED ROWS:", len(parsed))
+
 def scrape_social_and_regional(page, rows):
     """Daily discovery across team X/Instagram and regional TV sources.
     Search results are candidates only. A result enters the dataset only after
@@ -1210,7 +1284,7 @@ def known_facts():
         # VolleyballKing article confirms the tvk broadcast; the TV guide confirms its date.
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
         # Volleyball Magazine official X fixture graphic (2026-10-24).
-        Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://x.com/vbm_link/status/2113610880101568860", "13:05"),
+        Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860", "13:00"),
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
         Broadcast("サンテレビジョン", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
@@ -1728,6 +1802,10 @@ def main():
             scrape_volleyballking(page, rows)
         except Exception as e:
             print("VOLLEYBALLKING ERROR:", e)
+        try:
+            scrape_gunma_tv(page, rows)
+        except Exception as e:
+            print("GUNMA TV ERROR:", e)
         try:
             scrape_social_and_regional(page, rows)
         except Exception as e:
