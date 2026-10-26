@@ -1592,13 +1592,18 @@ def scrape_volleyballmagazine(page, rows):
         )
 
 
+# The official homepage now links the current monthly timetable from this URL;
+# keep the legacy page as a fallback because its text sometimes lags the current image.
+GUNMA_TV_CURRENT_URL = "https://gtv.e-business.ne.jp/timetable/"
 GUNMA_TV_URL = "https://www.gtv.co.jp/timetable/"
+GUNMA_TV_URLS = (GUNMA_TV_CURRENT_URL, GUNMA_TV_URL)
 
 def _parse_gunma_tv_airtime(text):
     """Parse an explicitly labeled broadcast-start time from Gunma TV's timetable."""
     m = re.search(
         r"(午前|午後)?\s*(\d{1,2})(?::(\d{2})|時(?:(\d{1,2})分?)?)"
-        r"\s*(?:～|〜|~|−|-|から|より)?\s*(?:生中継|中継|放送)",
+        r"(?:\s*(?:～|〜|~|−|-|から|より)(?:\s*(?:(?:午前|午後)\s*)?\d{1,2}(?::\d{2}|時(?:(?:\d{1,2})分?)?)?)?)?"
+        r"\s*(?:生中継|中継|放送)",
         text,
     )
     if not m:
@@ -1650,28 +1655,65 @@ def _parse_gunma_tv_schedule(text):
             found.append((broadcast_date, match, airtime))
     return found
 
-def scrape_gunma_tv(page, rows):
-    """Directly read Gunma TV's official monthly timetable; search snippets are not used."""
-    page.goto(GUNMA_TV_URL, wait_until="domcontentloaded", timeout=45000)
-    # The monthly timetable is rendered asynchronously on some runs. Wait for
-    # the team name before reading the body instead of treating an early,
-    # incomplete DOM as an empty schedule.
+def _log_gunma_tv_timetable_attachments(page, base_url):
+    """Log linked monthly images/PDFs when the text view does not expose a dated airing."""
     try:
-        page.locator("text=群馬グリーンウイングス").first.wait_for(timeout=10000)
+        links = page.locator("a[href]")
+        for i in range(min(links.count(), 200)):
+            link = links.nth(i)
+            try:
+                href = link.get_attribute("href") or ""
+                if not href:
+                    continue
+                absolute = urllib.parse.urljoin(base_url, href)
+                lowered = absolute.casefold()
+                if not any(token in lowered for token in ("timetable", ".pdf", "2026", "2027", "schedule")):
+                    continue
+                title = re.sub(r"\s+", " ", link.inner_text(timeout=300)).strip()
+                print("GUNMA TV ATTACHMENT NEEDS REVIEW:", absolute, "|", title[:120])
+            except Exception:
+                continue
     except Exception as e:
-        print("GUNMA TV CONTENT WAIT WARNING:", e)
-    page.wait_for_timeout(300)
-    body = page.locator("body").inner_text(timeout=10000)
-    if not body.strip():
-        raise RuntimeError(f"Gunma TV timetable returned empty text at {page.url}")
-    parsed = _parse_gunma_tv_schedule(body)
-    if not parsed:
-        print("GUNMA TV PAGE TEXT DIAGNOSTIC:", repr(body[:700]))
-        raise RuntimeError(f"Gunma TV timetable loaded, but no dated matchup with an explicit broadcast-start time could be parsed at {page.url}")
-    for broadcast_date, match, airtime in parsed:
-        add(rows, "群馬テレビ", broadcast_date, match, GUNMA_TV_URL, airtime)
-        print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", GUNMA_TV_URL)
-    print("GUNMA TV PARSED ROWS:", len(parsed))
+        print("GUNMA TV ATTACHMENT DISCOVERY ERROR:", base_url, e)
+
+
+def scrape_gunma_tv(page, rows):
+    """Try the current official timetable first, then the legacy page; never infer rows from snippets."""
+    failures = []
+    for timetable_url in GUNMA_TV_URLS:
+        try:
+            page.goto(timetable_url, wait_until="domcontentloaded", timeout=20000)
+            page.wait_for_timeout(300)
+            # The legacy page renders asynchronously on some runs. Keep this wait
+            # short; a generic month heading is not proof of a dated broadcast.
+            try:
+                page.locator("text=群馬グリーンウイングス").first.wait_for(timeout=3000)
+            except Exception as e:
+                print("GUNMA TV CONTENT WAIT WARNING:", timetable_url, e)
+            body = page.locator("body").inner_text(timeout=10000)
+            if not body.strip():
+                message = f"empty text at {timetable_url}"
+                failures.append(message)
+                print("GUNMA TV SOURCE ERROR:", message)
+                _log_gunma_tv_timetable_attachments(page, timetable_url)
+                continue
+            parsed = _parse_gunma_tv_schedule(body)
+            if not parsed:
+                message = f"no dated matchup with explicit broadcast-start time at {timetable_url}"
+                failures.append(message)
+                print("GUNMA TV NEEDS REVIEW:", message, "| page text:", repr(body[:500]))
+                _log_gunma_tv_timetable_attachments(page, timetable_url)
+                continue
+            for broadcast_date, match, airtime in parsed:
+                add(rows, "群馬テレビ", broadcast_date, match, timetable_url, airtime)
+                print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", timetable_url)
+            print("GUNMA TV PARSED ROWS:", len(parsed), "| source:", timetable_url)
+            return
+        except Exception as e:
+            message = f"{timetable_url}: {e}"
+            failures.append(message)
+            print("GUNMA TV SOURCE ERROR:", message)
+    raise RuntimeError("No parseable dated broadcast found on official Gunma TV timetable endpoints: " + " | ".join(failures))
 
 
 def _canonical_search_result_url(href):
@@ -2019,7 +2061,7 @@ def reconcile(rows):
 
     def source_priority(row):
         source = (row.source or "").casefold()
-        if "program_guide/channel" in source or "gtv.co.jp/timetable" in source:
+        if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable", "gtv.e-business.ne.jp/timetable")):
             return 7
         if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp")):
             return 6
