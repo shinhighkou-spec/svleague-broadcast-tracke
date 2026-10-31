@@ -198,6 +198,24 @@
     "match_start_time": "14:05"
   },
   {
+    "station": "南日本放送",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "13:55",
+    "match_start_time": ""
+  },
+  {
+    "station": "サガテレビ",
+    "broadcast_date": "2026-10-31",
+    "home": "SAGA久光スプリングス",
+    "away": "ヴィクトリーナ姫路",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "14:00",
+    "match_start_time": ""
+  },
+  {
     "station": "J SPORTS 1",
     "broadcast_date": "2026-11-01",
     "home": "フラーゴラッド鹿児島",
