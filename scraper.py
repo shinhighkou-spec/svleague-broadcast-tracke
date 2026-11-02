@@ -1227,6 +1227,70 @@ def _extract_volleyballking_broadcast(text):
         return None
     return station, d, match, tm
 
+def _volleyballking_html_evidence(html):
+    """Extract first-party article text and structured articleBody without publication timestamps."""
+    soup = BeautifulSoup(str(html or ""), "lxml")
+    parts = []
+
+    # Structured data is discovery/evidence text only. Deliberately exclude
+    # datePublished/dateModified so publication dates can never become air dates.
+    def collect_article_fields(value):
+        if isinstance(value, dict):
+            for key in ("headline", "articleBody", "description"):
+                field = value.get(key)
+                if isinstance(field, str) and field.strip():
+                    parts.append(field.strip())
+            for child in value.values():
+                if isinstance(child, (dict, list)):
+                    collect_article_fields(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect_article_fields(child)
+
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            collect_article_fields(json.loads(script.string or script.get_text() or ""))
+        except (json.JSONDecodeError, TypeError, ValueError):
+            continue
+
+    container = (
+        soup.select_one("article")
+        or soup.select_one(".article-body")
+        or soup.select_one(".entry-content")
+        or soup.select_one("main")
+        or soup.body
+        or soup
+    )
+    for node in container.select("script, style, noscript, svg, nav, footer, aside"):
+        node.decompose()
+    body_text = container.get_text(" ", strip=True)
+    if body_text:
+        parts.append(body_text)
+    return re.sub(r"\\s+", " ", " ".join(parts)).strip()
+
+
+def _fetch_volleyballking_http_evidence(page, url):
+    """Fallback to direct HTTP HTML when the rendered browser page has no parseable facts."""
+    try:
+        response = page.request.get(url, timeout=20000)
+        if response.status != 200:
+            print("VOLLEYBALLKING HTTP ARTICLE FALLBACK ERROR:", url, "status", response.status)
+            return ""
+        html = response.text()
+        evidence = _volleyballking_html_evidence(html)
+        print(
+            "VOLLEYBALLKING HTTP ARTICLE FALLBACK:",
+            url,
+            "status", response.status,
+            "html_chars", len(html),
+            "evidence_chars", len(evidence),
+        )
+        return evidence
+    except Exception as e:
+        print("VOLLEYBALLKING HTTP ARTICLE FALLBACK ERROR:", url, e)
+        return ""
+
+
 def scrape_volleyballking(page, rows):
     """Daily direct crawl of VolleyballKing's latest/SV article listings."""
     article_links = {}
@@ -1290,6 +1354,22 @@ def scrape_volleyballking(page, rows):
                     single_item = _extract_volleyballking_broadcast(article_text)
                     if single_item:
                         items = [single_item]
+            if not items:
+                # Some articles are discoverable in sitemaps but the rendered
+                # page can expose only a shell/partial body. Retry via direct
+                # HTTP and parse article text/JSON-LD; still require the same
+                # strict station/date/match parser before accepting any row.
+                http_evidence = _fetch_volleyballking_http_evidence(page, href)
+                if http_evidence:
+                    items = _extract_volleyballking_broadcasts(http_evidence)
+                    if not items:
+                        article_stations = [st for st in VALID_STATIONS if st in http_evidence]
+                        if len(article_stations) == 1:
+                            single_item = _extract_volleyballking_broadcast(http_evidence)
+                            if single_item:
+                                items = [single_item]
+                    if items:
+                        print("VOLLEYBALLKING HTTP FALLBACK PARSED:", href, "items", len(items))
             if not items:
                 needs_review += 1
                 print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
