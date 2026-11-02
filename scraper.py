@@ -1266,7 +1266,7 @@ def _volleyballking_html_evidence(html):
     body_text = container.get_text(" ", strip=True)
     if body_text:
         parts.append(body_text)
-    return re.sub(r"\\s+", " ", " ".join(parts)).strip()
+    return re.sub(r"\s+", " ", " ".join(parts)).strip()
 
 
 def _fetch_volleyballking_http_evidence(page, url):
