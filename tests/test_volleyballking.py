@@ -205,6 +205,29 @@ def test_volleyballking_feed_titles_prioritize_broadcast_related_articles():
     assert scraper._extract_volleyballking_broadcasts("SVリーグ戦のテレビ放送追加情報 2026.10.17 14:35") == []
 
 
+def test_volleyballking_html_fallback_extracts_article_body_without_publication_date():
+    html = """
+    <html><head>
+      <meta property="article:published_time" content="2026-10-17T14:35:00+09:00">
+      <script type="application/ld+json">
+        {"@type":"NewsArticle","datePublished":"2026-10-17T14:35:00+09:00",
+         "headline":"SVリーグ戦のテレビ放送追加情報",
+         "articleBody":"BS10では、女子は11月14日（土）に行われる第5節GAME1のSAGA久光スプリングス vs PFUブルーキャッツ石川かほく、11月28日（土）に行われる第7節GAME1のNECレッドロケッツ川崎 vs PFUブルーキャッツ石川かほく、男子は11月7日（土）に行われる第3節GAME1のウルフドッグス名古屋 vs ジェイテクトSTINGS愛知の3試合が放送される。"}
+      </script>
+    </head><body>
+      <nav>J SPORTS 1 番組表</nav>
+      <article><h1>SVリーグ戦のテレビ放送追加情報</h1>
+      <p>BS10では、女子は11月14日（土）に行われる第5節GAME1のSAGA久光スプリングス vs PFUブルーキャッツ石川かほく、11月28日（土）に行われる第7節GAME1のNECレッドロケッツ川崎 vs PFUブルーキャッツ石川かほく、男子は11月7日（土）に行われる第3節GAME1のウルフドッグス名古屋 vs ジェイテクトSTINGS愛知の3試合が放送される。</p>
+      </article>
+    </body></html>
+    """
+    evidence = scraper._volleyballking_html_evidence(html)
+    parsed = scraper._extract_volleyballking_broadcasts(evidence)
+    assert [item[1] for item in parsed] == ["2026-11-14", "2026-11-28", "2026-11-07"]
+    assert "2026-10-17T14:35:00" not in evidence
+    assert all(item[3] == "" for item in parsed)
+
+
 def test_volleyballking_article_extracts_multiple_bs10_broadcasts_without_airtime():
     article = (
         "2026.10.17 14:35 SVリーグ戦のテレビ放送追加情報。"
