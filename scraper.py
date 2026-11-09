@@ -231,14 +231,14 @@ def extract_jcom_broadcast_item(text: str):
     and the actual TV slot as a time range after the channel label. All three
     must be present in the same small DOM block before a row is accepted.
     """
-    text = re.sub(r"\\s+", " ", str(text or "")).strip()
+    text = re.sub(r"\s+", " ", str(text or "")).strip()
     stations = _recognized_station_names(text)
     if len(stations) != 1 or not stations[0].startswith("J SPORTS "):
         return None
-    if not re.search(r"録画|生中継|生\\s+J SPORTS", text):
+    if not re.search(r"録画|生中継|生\s+J SPORTS", text):
         return None
 
-    date_tokens = re.findall(r"20\\d{2}[./年-]\\d{1,2}[./月-]\\d{1,2}", text)
+    date_tokens = re.findall(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", text)
     if len(date_tokens) < 2:
         return None
     broadcast_date = parse_date(date_tokens[0])
@@ -255,7 +255,7 @@ def extract_jcom_broadcast_item(text: str):
     # A time range belongs to the programme slot. Do not use the earlier
     # match-start clock (e.g. 14:35) as the broadcast start (e.g. 10:00).
     airing_range = re.search(
-        r"(?<!\\d)(\\d{1,2}):(\\d{2})\\s*[〜～~–—-]\\s*\\d{1,2}:\\d{2}(?!\\d)",
+        r"(?<!\d)(\d{1,2}):(\d{2})\s*[〜～~–—-]\s*\d{1,2}:\d{2}(?!\d)",
         text,
     )
     if not airing_range:
@@ -573,7 +573,7 @@ def scrape_jcom(page, rows):
                 break
         if not item:
             review += 1
-            print("J:COM NEEDS REVIEW:", re.sub(r"\\s+", " ", last_block)[:260])
+            print("J:COM NEEDS REVIEW:", re.sub(r"\s+", " ", last_block)[:260])
             continue
         station, broadcast_date, match, broadcast_time, match_start_time = item
         add(rows, station, broadcast_date, match, url, broadcast_time, match_start_time)
