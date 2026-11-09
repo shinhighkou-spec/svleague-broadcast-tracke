@@ -190,3 +190,25 @@ def test_current_gunma_tv_timetable_is_tried_before_legacy_page():
         "https://gtv.e-business.ne.jp/timetable/",
         "https://www.gtv.co.jp/timetable/",
     )
+
+
+def test_volleyballmagazine_tss_local_tv_listing_is_recognized():
+    title = "2026年11月のバレーボール番組"
+    article = """
+    2026年11月のバレーボール番組
+    2026-10-31
+    期間：2026.11.01 ～ 2026.11.30
+    〖大同生命SVリーグ2026-2027〗
+    ＜地上波＞
+    11/01（日）[生]13:00～15:00 TSS
+    男子 広島THvs東京GB
+    ＜ＢＳ＞
+    11/01（日）[生]12:45～16:00 JSPORTS 2HD
+    男子 F鹿児島vs北海道YS
+    """
+    rows = _parse_volleyballmagazine_tv_schedule(title, article)
+    assert rows == [(
+        "テレビ新広島", "2026-11-01",
+        ("広島サンダーズ", "東京グレートベアーズ"), "13:00"
+    )]
+    assert _volleyballmagazine_station("11/01（日）[生]13:00～15:00 TSS") == "テレビ新広島"
