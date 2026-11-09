@@ -1,5 +1,6 @@
 from __future__ import annotations
-import csv, json, os, re, urllib.parse
+import csv, json, os, re, urllib.parse, unicodedata
+from io import BytesIO
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
@@ -19,6 +20,7 @@ from dataclasses import dataclass, asdict
 from datetime import date, datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -1755,8 +1757,8 @@ def scrape_volleyballmagazine(page, rows):
 
 # The official homepage now links the current monthly timetable from this URL;
 # keep the legacy page as a fallback because its text sometimes lags the current image.
-GUNMA_TV_CURRENT_URL = "https://gtv.e-business.ne.jp/timetable/"
-GUNMA_TV_URL = "https://www.gtv.co.jp/timetable/"
+GUNMA_TV_CURRENT_URL = "https://www.gtv.co.jp/timetable/"
+GUNMA_TV_URL = "https://gtv.e-business.ne.jp/timetable/"
 GUNMA_TV_URLS = (GUNMA_TV_CURRENT_URL, GUNMA_TV_URL)
 
 def _parse_gunma_tv_airtime(text):
@@ -1816,6 +1818,109 @@ def _parse_gunma_tv_schedule(text):
             found.append((broadcast_date, match, airtime))
     return found
 
+
+def _parse_gunma_tv_pdf_schedule(text, year=2026, month=11):
+    """Parse only an explicit two-day live SV League card from Gunma TV's monthly PDF."""
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    compact = re.sub(r"\s+", "", normalized)
+    home = "群馬グリーンウイングス"
+    away = "アリーザ愛知"
+    home_pos = compact.find(home)
+    away_pos = compact.find(away)
+    if home_pos < 0 or away_pos < 0:
+        return []
+
+    start = max(0, min(home_pos, away_pos) - 600)
+    end = min(len(compact), max(home_pos + len(home), away_pos + len(away)) + 600)
+    card = compact[start:end]
+    if not re.search(r"大同生命SV\.?LEAGUEWOMEN", card, re.I):
+        return []
+
+    date_pair = re.search(
+        rf"{int(month)}月(\d{{1,2}})日[・、,／/]*(\d{{1,2}})日",
+        card,
+    )
+    if not date_pair:
+        return []
+    live_time = re.search(
+        r"LIVE(\d{1,2}):(\d{2})[～〜~–—-]\d{1,2}:\d{2}",
+        card,
+        re.I,
+    )
+    if not live_time:
+        return []
+    hour, minute = int(live_time.group(1)), int(live_time.group(2))
+    if hour > 23 or minute > 59:
+        return []
+    broadcast_time = f"{hour:02d}:{minute:02d}"
+
+    match = parse_match(card)
+    if not match or match[0] != home or match[1] != away:
+        return []
+
+    found = []
+    for day_text in date_pair.groups():
+        day = int(day_text)
+        try:
+            broadcast_date = date(int(year), int(month), day).isoformat()
+        except ValueError:
+            continue
+        if valid_season_date(broadcast_date):
+            item = (broadcast_date, match, broadcast_time)
+            if item not in found:
+                found.append(item)
+    return found
+
+
+def _fetch_gunma_tv_current_month_pdf(page, base_url, body):
+    """Download only the PDF explicitly labelled for the current timetable month."""
+    month_match = re.search(r"(20\d{2})年\s*(\d{1,2})月", str(body or ""))
+    if not month_match:
+        print("GUNMA TV PDF NEEDS REVIEW: current timetable month not identifiable")
+        return []
+    year, month = int(month_match.group(1)), int(month_match.group(2))
+    month_label = f"{year}年{month}月"
+    links = page.locator("a[href]")
+    pdf_url = ""
+    for i in range(min(links.count(), 200)):
+        link = links.nth(i)
+        try:
+            href = link.get_attribute("href") or ""
+            if ".pdf" not in href.casefold():
+                continue
+            title = re.sub(r"\s+", " ", link.inner_text(timeout=300)).strip()
+            if month_label not in title:
+                continue
+            pdf_url = urllib.parse.urljoin(base_url, href)
+            break
+        except Exception:
+            continue
+    if not pdf_url:
+        print("GUNMA TV CURRENT MONTH PDF NOT FOUND:", month_label, base_url)
+        return []
+
+    try:
+        response = page.context.request.get(pdf_url, timeout=20000)
+        if not response.ok:
+            raise RuntimeError(f"HTTP {response.status}")
+        pdf_bytes = response.body()
+        if not pdf_bytes.startswith(b"%PDF") or len(pdf_bytes) > 12 * 1024 * 1024:
+            raise RuntimeError(f"unexpected PDF signature or size ({len(pdf_bytes)} bytes)")
+        reader = PdfReader(BytesIO(pdf_bytes), strict=False)
+        if not 1 <= len(reader.pages) <= 10:
+            raise RuntimeError(f"unexpected page count: {len(reader.pages)}")
+        pdf_text = "\n".join(page_obj.extract_text() or "" for page_obj in reader.pages)
+    except Exception as e:
+        print("GUNMA TV PDF FETCH/PARSE ERROR:", pdf_url, e)
+        return []
+
+    parsed = _parse_gunma_tv_pdf_schedule(pdf_text, year=year, month=month)
+    if not parsed:
+        print("GUNMA TV PDF NEEDS REVIEW:", pdf_url, "| extracted text:", repr(pdf_text[:900]))
+        return []
+    return [(broadcast_date, match, airtime, pdf_url) for broadcast_date, match, airtime in parsed]
+
+
 def _log_gunma_tv_timetable_attachments(page, base_url):
     """Log linked monthly images/PDFs when the text view does not expose a dated airing."""
     try:
@@ -1859,17 +1964,28 @@ def scrape_gunma_tv(page, rows):
                 _log_gunma_tv_timetable_attachments(page, timetable_url)
                 continue
             parsed = _parse_gunma_tv_schedule(body)
-            if not parsed:
-                message = f"no dated matchup with explicit broadcast-start time at {timetable_url}"
-                failures.append(message)
-                print("GUNMA TV NEEDS REVIEW:", message, "| page text:", repr(body[:500]))
-                _log_gunma_tv_timetable_attachments(page, timetable_url)
-                continue
-            for broadcast_date, match, airtime in parsed:
-                add(rows, "群馬テレビ", broadcast_date, match, timetable_url, airtime)
-                print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", timetable_url)
-            print("GUNMA TV PARSED ROWS:", len(parsed), "| source:", timetable_url)
-            return
+            if parsed:
+                for broadcast_date, match, airtime in parsed:
+                    add(rows, "群馬テレビ", broadcast_date, match, timetable_url, airtime)
+                    print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", timetable_url)
+                print("GUNMA TV PARSED ROWS:", len(parsed), "| source:", timetable_url)
+                return
+
+            # The official current page links a monthly PDF. It contains the
+            # dated two-day live card even when the text-only timetable omits it.
+            pdf_rows = _fetch_gunma_tv_current_month_pdf(page, timetable_url, body)
+            if pdf_rows:
+                for broadcast_date, match, airtime, pdf_url in pdf_rows:
+                    add(rows, "群馬テレビ", broadcast_date, match, pdf_url, airtime)
+                    print("GUNMA TV PDF ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", pdf_url)
+                print("GUNMA TV PDF PARSED ROWS:", len(pdf_rows))
+                return
+
+            message = f"no dated matchup with explicit broadcast-start time in text or current-month PDF at {timetable_url}"
+            failures.append(message)
+            print("GUNMA TV NEEDS REVIEW:", message, "| page text:", repr(body[:500]))
+            _log_gunma_tv_timetable_attachments(page, timetable_url)
+            continue
         except Exception as e:
             message = f"{timetable_url}: {e}"
             failures.append(message)
@@ -2165,6 +2281,10 @@ def known_facts():
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
         # Official Gunma TV timetable gives 13:00 airing; Volleyball Magazine X fixture graphic gives the 13:05 match start (2026-10-24).
         Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860", "13:00"),
+        # The official November PDF explicitly lists the Nov 21-22 live card at 13:00;
+        # the club's official match page confirms both 13:05 match starts.
+        Broadcast("群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知", "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/", "13:00", "13:05"),
+        Broadcast("群馬テレビ", "2026-11-22", "群馬グリーンウイングス", "アリーザ愛知", "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/", "13:00", "13:05"),
         # TSS's own October news article confirms a live broadcast on Nov 1 at 13:00;
         # the November TV schedule independently identifies the matchup and 13:00-15:00 slot.
         Broadcast("テレビ新広島", "2026-11-01", "広島サンダーズ", "東京グレートベアーズ", "https://www.tss-tv.co.jp/tssnews/000036092.html | https://volleyballmagazine.jp/703335/", "13:00", "13:05"),
