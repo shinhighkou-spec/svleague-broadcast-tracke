@@ -567,6 +567,15 @@
     "match_start_time": "15:05"
   },
   {
+    "station": "J SPORTS 1",
+    "broadcast_date": "2026-12-06",
+    "home": "広島サンダーズ",
+    "away": "サントリーサンバーズ大阪",
+    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261206/",
+    "broadcast_time": "20:30",
+    "match_start_time": ""
+  },
+  {
     "station": "BS無料放送（局名未公表）",
     "broadcast_date": "2026-12-19",
     "home": "東京グレートベアーズ",
