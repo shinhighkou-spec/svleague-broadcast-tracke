@@ -224,6 +224,55 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     tm = parse_time(text)
     return stations[0], d, match, tm
 
+def extract_jcom_broadcast_item(text: str):
+    """Parse a single J:COM programme block without confusing match and airing dates/times.
+
+    J:COM blocks place the broadcast date first, the original match date second,
+    and the actual TV slot as a time range after the channel label. All three
+    must be present in the same small DOM block before a row is accepted.
+    """
+    text = re.sub(r"\\s+", " ", str(text or "")).strip()
+    stations = _recognized_station_names(text)
+    if len(stations) != 1 or not stations[0].startswith("J SPORTS "):
+        return None
+    if not re.search(r"録画|生中継|生\\s+J SPORTS", text):
+        return None
+
+    date_tokens = re.findall(r"20\\d{2}[./年-]\\d{1,2}[./月-]\\d{1,2}", text)
+    if len(date_tokens) < 2:
+        return None
+    broadcast_date = parse_date(date_tokens[0])
+    match_date = parse_date(date_tokens[1])
+    if not broadcast_date or not match_date:
+        return None
+    if not valid_season_date(broadcast_date) or not valid_season_date(match_date):
+        return None
+
+    match = parse_match(text)
+    if not match:
+        return None
+
+    # A time range belongs to the programme slot. Do not use the earlier
+    # match-start clock (e.g. 14:35) as the broadcast start (e.g. 10:00).
+    airing_range = re.search(
+        r"(?<!\\d)(\\d{1,2}):(\\d{2})\\s*[〜～~–—-]\\s*\\d{1,2}:\\d{2}(?!\\d)",
+        text,
+    )
+    if not airing_range:
+        return None
+    airing_hour = int(airing_range.group(1))
+    airing_minute = int(airing_range.group(2))
+    if airing_hour > 23 or airing_minute > 59:
+        return None
+    broadcast_time = f"{airing_hour:02d}:{airing_minute:02d}"
+
+    after_match_date = text.split(date_tokens[1], 1)[1]
+    station_match = re.search(re.escape(stations[0]), after_match_date)
+    match_segment = after_match_date[:station_match.start()] if station_match else after_match_date
+    match_start_time = parse_time(match_segment)
+    return stations[0], broadcast_date, match, broadcast_time, match_start_time
+
+
 def add(rows, station, d, match, source, t="", match_start_time=""):
     station = clean_station(station)
     if station not in VALID_STATIONS:
@@ -489,23 +538,52 @@ def scrape_jsports_official(page, rows):
     print("J SPORTS OFFICIAL CANDIDATES:", len(unique))
 
 def scrape_jcom(page, rows):
-    """Supplemental TV/CS source. Only accept an explicit J SPORTS channel
-    together with broadcast date, time, and both teams in one small DOM block.
-    J SPORTS on-demand-only entries are intentionally ignored."""
+    """Read J:COM's TV programme slots, preserving replay date/time separately from match details."""
     url = "https://www2.myjcom.jp/special/tv/sports/volleyball/svleague/schedule.php"
-    page.goto(url, wait_until="networkidle", timeout=60000)
-    page.wait_for_timeout(1500)
+    # networkidle is unreliable on this page because its embedded widgets keep
+    # network requests open. Wait for the actual channel labels instead.
+    page.goto(url, wait_until="domcontentloaded", timeout=45000)
     labels = page.locator("text=/J SPORTS [1-4] HD/")
-    for i in range(labels.count()):
-        try:
-            el = labels.nth(i)
-            block = el.locator("xpath=ancestor::*[self::div or self::li or self::article][1]").inner_text(timeout=3000)
-        except Exception:
+    try:
+        labels.first.wait_for(state="attached", timeout=15000)
+    except Exception as e:
+        raise RuntimeError(f"J:COM programme channel labels did not load: {e}")
+    page.wait_for_timeout(300)
+    label_count = labels.count()
+    if not label_count:
+        raise RuntimeError("J:COM page loaded but no J SPORTS TV channel labels were found")
+
+    accepted = 0
+    review = 0
+    for i in range(label_count):
+        el = labels.nth(i)
+        item = None
+        last_block = ""
+        # The page nests channel labels at different depths. Try only a few
+        # nearest ancestors and accept the smallest block with one channel,
+        # two explicit dates, both teams, and a programme time range.
+        for depth in range(1, 5):
+            try:
+                block = el.locator(f"xpath=ancestor::div[{depth}]").inner_text(timeout=2500)
+                last_block = block
+            except Exception:
+                continue
+            item = extract_jcom_broadcast_item(block)
+            if item:
+                break
+        if not item:
+            review += 1
+            print("J:COM NEEDS REVIEW:", re.sub(r"\\s+", " ", last_block)[:260])
             continue
-        item = extract_broadcast_item(block)
-        if item:
-            station, d, match, tm = item
-            add(rows, station, d, match, url, tm)
+        station, broadcast_date, match, broadcast_time, match_start_time = item
+        add(rows, station, broadcast_date, match, url, broadcast_time, match_start_time)
+        accepted += 1
+        print("J:COM ACCEPTED:", station, broadcast_date, broadcast_time,
+              "match start", match_start_time or "unknown", match[0], "vs", match[1])
+
+    print("J:COM CHANNEL BLOCKS:", label_count, "ACCEPTED:", accepted, "NEEDS REVIEW:", review)
+    if accepted == 0:
+        raise RuntimeError(f"J:COM page exposed {label_count} channel labels but no complete dated TV programme blocks")
 
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
@@ -2087,25 +2165,6 @@ def known_facts():
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
         Broadcast("サンテレビジョン", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
-        # GTV announced that all 18 Gunma home matches will be televised. Until each
-        # broadcast slot is announced, keep a visible placeholder on the match date.
-        Broadcast("群馬テレビ", "2026-10-25", "群馬グリーンウイングス", "アランマーレ秋田庄内", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-11-22", "群馬グリーンウイングス", "アリーザ愛知", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-12-05", "群馬グリーンウイングス", "SAGA久光スプリングス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-12-06", "群馬グリーンウイングス", "SAGA久光スプリングス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-12-26", "群馬グリーンウイングス", "NECレッドロケッツ川崎", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2026-12-27", "群馬グリーンウイングス", "NECレッドロケッツ川崎", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-01-23", "群馬グリーンウイングス", "ＫＵＲＯＢＥアクアフェアリーズ富山", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-01-24", "群馬グリーンウイングス", "ＫＵＲＯＢＥアクアフェアリーズ富山", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-06", "群馬グリーンウイングス", "PFUブルーキャッツ石川かほく", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-07", "群馬グリーンウイングス", "PFUブルーキャッツ石川かほく", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-20", "群馬グリーンウイングス", "Astemoリヴァーレ茨城", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-21", "群馬グリーンウイングス", "Astemoリヴァーレ茨城", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-27", "群馬グリーンウイングス", "埼玉上尾メディックス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-02-28", "群馬グリーンウイングス", "埼玉上尾メディックス", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-03-20", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
-        Broadcast("群馬テレビ", "2027-03-21", "群馬グリーンウイングス", "デンソーエアリービーズ", "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/", ""),
         # GTV weekly grid lists a 19:00 replay of this matchup, but the text view does not reliably associate it with a date; do not invent one.
         # Durable fallback for every remaining explicit TV entry in official announcement 100609.
         Broadcast("J SPORTS 3", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城", "https://www.svleague.jp/news/detail/100609/?grade=sv", "14:05"),
@@ -2160,6 +2219,10 @@ def reconcile(rows):
         return 2
 
     def upsert(raw_row):
+        if "provisional-gunma-tv-home-broadcast" in (raw_row.source or "").casefold():
+            print("UNCONFIRMED GUNMA TV MATCH-DATE PLACEHOLDER EXCLUDED:", raw_row.broadcast_date,
+                  raw_row.home, "vs", raw_row.away)
+            return
         row = normalize_time_semantics(raw_row)
         key4 = identity(row)
         if key4 in banned:
@@ -2623,10 +2686,7 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
     html = html.replace("__ROWS__", "".join(day_blocks))
     html = html.replace("__DATES__", date_options)
     html = html.replace("__UPDATED__", datetime.now().strftime("%Y.%m.%d %H:%M"))
-    provisional_note = ""
-    if any("provisional-gunma-tv-home-broadcast" in r.source for r in rows):
-        provisional_note = '<br><strong>※ 群馬テレビの「今季ホーム戦18試合を全て放送」発表に基づく仮登録があります。放送日時未発表の試合は試合日を仮置きし、放送枠が確認でき次第更新します。</strong><br><strong>※ 群馬テレビの週間番組表には19:00の録画中継も記載されていますが、放送日を確定できないため日付確定待ちです。</strong>'
-    html = html.replace("__PROVISIONAL_NOTE__", provisional_note)
+    html = html.replace("__PROVISIONAL_NOTE__", "")
     (SITE / "index.html").write_text(html, encoding="utf-8")
 
 def main():
