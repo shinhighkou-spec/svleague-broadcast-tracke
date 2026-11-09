@@ -418,6 +418,60 @@ def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
     assert "今季ホーム戦18試合を全て放送" not in html
 
 
+def test_gunma_tv_pdf_parser_extracts_both_confirmed_live_dates():
+    from scraper import _parse_gunma_tv_pdf_schedule
+    pdf_text = """
+    2026年11月 番組表
+    11月21日・22日 LIVE 13:00～15:00
+    群馬グリーンウイングス
+    アリーザ愛知
+    大同生命ＳＶ．ＬＥＡＧＵＥ ＷＯＭＥＮ
+    """
+    assert _parse_gunma_tv_pdf_schedule(pdf_text, year=2026, month=11) == [
+        (
+            "2026-11-21",
+            ("群馬グリーンウイングス", "アリーザ愛知"),
+            "13:00"
+        ),
+        (
+            "2026-11-22",
+            ("群馬グリーンウイングス", "アリーザ愛知"),
+            "13:00"
+        ),
+    ]
+
+
+def test_gunma_tv_pdf_parser_rejects_generic_or_incomplete_mentions():
+    from scraper import _parse_gunma_tv_pdf_schedule
+    assert _parse_gunma_tv_pdf_schedule(
+        "11月21日・22日 LIVE 13:00～15:00 大同生命SV.LEAGUE WOMEN",
+        year=2026, month=11
+    ) == []
+    assert _parse_gunma_tv_pdf_schedule(
+        "11月21日・22日 13:00～15:00 群馬グリーンウイングス アリーザ愛知 大同生命SV.LEAGUE WOMEN",
+        year=2026, month=11
+    ) == []
+
+
+def test_gunma_tv_november_official_broadcast_facts_keep_airtime_separate():
+    from scraper import known_facts
+    expected = {
+        "2026-11-21": ("群馬グリーンウイングス", "アリーザ愛知"),
+        "2026-11-22": ("群馬グリーンウイングス", "アリーザ愛知"),
+    }
+    rows = [
+        r for r in known_facts()
+        if r.station == "群馬テレビ" and r.broadcast_date in expected
+    ]
+    assert len(rows) == 2
+    for row in rows:
+        assert (row.home, row.away) == expected[row.broadcast_date]
+        assert row.broadcast_time == "13:00"
+        assert row.match_start_time == "13:05"
+        assert "gtv.co.jp/timetable/pdf/" in row.source
+        assert "gunmagreenwings.jp/homegame/20261121_22/" in row.source
+
+
 def test_tss_official_live_broadcast_is_preserved_with_separate_airtime_and_match_start():
     from scraper import known_facts
     row = next(
