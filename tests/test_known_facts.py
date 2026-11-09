@@ -382,3 +382,18 @@ def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
     html = html_path.read_text(encoding="utf-8")
     assert "provisional-gunma-tv-home-broadcast" not in html
     assert "今季ホーム戦18試合を全て放送" not in html
+
+
+def test_tss_official_live_broadcast_is_preserved_with_separate_airtime_and_match_start():
+    from scraper import known_facts
+    row = next(
+        r for r in known_facts()
+        if r.station == "テレビ新広島"
+        and r.broadcast_date == "2026-11-01"
+        and r.home == "広島サンダーズ"
+        and r.away == "東京グレートベアーズ"
+    )
+    assert row.broadcast_time == "13:00"
+    assert row.match_start_time == "13:05"
+    assert "tss-tv.co.jp" in row.source
+    assert "volleyballmagazine.jp/703335/" in row.source
