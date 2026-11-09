@@ -133,6 +133,8 @@ def clean_station(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     aliases = {
         "GAORA": "GAORA SPORTS",
+        "TSS": "テレビ新広島",
+        "TSSテレビ新広島": "テレビ新広島",
         "サンテレビ": "サンテレビジョン",
         "OHK岡山放送": "岡山放送",
         "TSCテレビせとうち": "テレビせとうち",
@@ -1541,6 +1543,9 @@ def _volleyballmagazine_station(line):
         return "GAORA SPORTS"
     if "サンテレビ" in compact:
         return "サンテレビジョン"
+    # Volleyball Magazine abbreviates Television Shin-Hiroshima as TSS.
+    if compact.endswith("TSS") or "TSSテレビ新広島" in compact:
+        return "テレビ新広島"
     for station in sorted(VALID_STATIONS, key=len, reverse=True):
         station_compact = re.sub(r"\s+", "", station).replace("　", "")
         if station_compact and station_compact in compact:
@@ -2162,6 +2167,9 @@ def known_facts():
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
         # Official Gunma TV timetable gives 13:00 airing; Volleyball Magazine X fixture graphic gives the 13:05 match start (2026-10-24).
         Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860", "13:00"),
+        # TSS's own October news article confirms a live broadcast on Nov 1 at 13:00;
+        # the November TV schedule independently identifies the matchup and 13:00-15:00 slot.
+        Broadcast("テレビ新広島", "2026-11-01", "広島サンダーズ", "東京グレートベアーズ", "https://www.tss-tv.co.jp/tssnews/000036092.html | https://volleyballmagazine.jp/703335/", "13:00", "13:05"),
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
         Broadcast("サンテレビジョン", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
@@ -2202,7 +2210,7 @@ def reconcile(rows):
         source = (row.source or "").casefold()
         if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable", "gtv.e-business.ne.jp/timetable")):
             return 7
-        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp")):
+        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp", "tss-tv.co.jp")):
             return 6
         if "volleyballmagazine.jp" in source:
             return 3
