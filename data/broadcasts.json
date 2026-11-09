@@ -234,6 +234,15 @@
     "match_start_time": "13:05"
   },
   {
+    "station": "テレビ新広島",
+    "broadcast_date": "2026-11-01",
+    "home": "広島サンダーズ",
+    "away": "東京グレートベアーズ",
+    "source": "https://www.tss-tv.co.jp/tssnews/000036092.html | https://volleyballmagazine.jp/703335/",
+    "broadcast_time": "13:00",
+    "match_start_time": "13:05"
+  },
+  {
     "station": "NHK BS",
     "broadcast_date": "2026-11-01",
     "home": "大阪ブルテオン",
@@ -387,12 +396,30 @@
     "match_start_time": ""
   },
   {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-11-21",
+    "home": "群馬グリーンウイングス",
+    "away": "アリーザ愛知",
+    "source": "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/",
+    "broadcast_time": "13:00",
+    "match_start_time": "13:05"
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
     "away": "埼玉上尾メディックス",
     "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "",
+    "match_start_time": "13:05"
+  },
+  {
+    "station": "群馬テレビ",
+    "broadcast_date": "2026-11-22",
+    "home": "群馬グリーンウイングス",
+    "away": "アリーザ愛知",
+    "source": "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/",
+    "broadcast_time": "13:00",
     "match_start_time": "13:05"
   },
   {
