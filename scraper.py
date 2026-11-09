@@ -226,53 +226,79 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     tm = parse_time(text)
     return stations[0], d, match, tm
 
-def extract_jcom_broadcast_item(text: str):
-    """Parse a single J:COM programme block without confusing match and airing dates/times.
+def parse_jcom_schedule_text(text: str):
+    """Parse J:COM's full page text using its broadcast-date / match-date pairs.
 
-    J:COM blocks place the broadcast date first, the original match date second,
-    and the actual TV slot as a time range after the channel label. All three
-    must be present in the same small DOM block before a row is accepted.
+    Each programme card contains two ISO dates in order: the actual airing date,
+    then the original match date. TV channels have an explicit J SPORTS HD label
+    followed by a programme time range. Match-start clocks are read only from
+    the match-details portion before the channel listings.
     """
-    text = re.sub(r"\s+", " ", str(text or "")).strip()
-    stations = _recognized_station_names(text)
-    if len(stations) != 1 or not stations[0].startswith("J SPORTS "):
-        return None
-    if not re.search(r"録画|生中継|生\s+J SPORTS", text):
-        return None
+    body = re.sub(r"\r", "", str(text or ""))
+    date_matches = list(re.finditer(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", body))
+    results = []
+    seen = set()
+    i = 0
+    while i + 1 < len(date_matches):
+        first_date = date_matches[i]
+        second_date = date_matches[i + 1]
+        broadcast_date = parse_date(first_date.group(0))
+        match_date = parse_date(second_date.group(0))
+        if (
+            not broadcast_date or not match_date
+            or not valid_season_date(broadcast_date)
+            or not valid_season_date(match_date)
+        ):
+            i += 1
+            continue
 
-    date_tokens = re.findall(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", text)
-    if len(date_tokens) < 2:
-        return None
-    broadcast_date = parse_date(date_tokens[0])
-    match_date = parse_date(date_tokens[1])
-    if not broadcast_date or not match_date:
-        return None
-    if not valid_season_date(broadcast_date) or not valid_season_date(match_date):
-        return None
+        segment_end = date_matches[i + 2].start() if i + 2 < len(date_matches) else len(body)
+        segment = body[first_date.start():segment_end]
+        match = parse_match(segment)
+        if not match:
+            i += 2
+            continue
 
-    match = parse_match(text)
-    if not match:
-        return None
+        channel_matches = list(re.finditer(
+            r"(?:録画|生中継|生)\s*(J SPORTS [1-4])\s*HD",
+            segment,
+            re.I,
+        ))
+        if not channel_matches:
+            i += 2
+            continue
 
-    # A time range belongs to the programme slot. Do not use the earlier
-    # match-start clock (e.g. 14:35) as the broadcast start (e.g. 10:00).
-    airing_range = re.search(
-        r"(?<!\d)(\d{1,2}):(\d{2})\s*[〜～~–—-]\s*\d{1,2}:\d{2}(?!\d)",
-        text,
-    )
-    if not airing_range:
-        return None
-    airing_hour = int(airing_range.group(1))
-    airing_minute = int(airing_range.group(2))
-    if airing_hour > 23 or airing_minute > 59:
-        return None
-    broadcast_time = f"{airing_hour:02d}:{airing_minute:02d}"
+        second_date_end = second_date.end() - first_date.start()
+        match_start_segment = segment[second_date_end:channel_matches[0].start()]
+        match_start_time = parse_time(match_start_segment)
 
-    after_match_date = text.split(date_tokens[1], 1)[1]
-    station_match = re.search(re.escape(stations[0]), after_match_date)
-    match_segment = after_match_date[:station_match.start()] if station_match else after_match_date
-    match_start_time = parse_time(match_segment)
-    return stations[0], broadcast_date, match, broadcast_time, match_start_time
+        for index, channel_match in enumerate(channel_matches):
+            channel_end = (
+                channel_matches[index + 1].start()
+                if index + 1 < len(channel_matches) else len(segment)
+            )
+            channel_block = segment[channel_match.start():channel_end]
+            airing_range = re.search(
+                r"(?<!\d)(\d{1,2}):(\d{2})\s*[〜～~–—-]\s*\d{1,2}:\d{2}(?!\d)",
+                channel_block,
+            )
+            if not airing_range:
+                continue
+            hour = int(airing_range.group(1))
+            minute = int(airing_range.group(2))
+            if hour > 23 or minute > 59:
+                continue
+            broadcast_time = f"{hour:02d}:{minute:02d}"
+            station = clean_station(channel_match.group(1))
+            key = (station, broadcast_date, match[0], match[1], broadcast_time)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append((station, broadcast_date, match, broadcast_time, match_start_time))
+
+        i += 2
+
+    return results
 
 
 def add(rows, station, d, match, source, t="", match_start_time=""):
@@ -540,52 +566,24 @@ def scrape_jsports_official(page, rows):
     print("J SPORTS OFFICIAL CANDIDATES:", len(unique))
 
 def scrape_jcom(page, rows):
-    """Read J:COM's TV programme slots, preserving replay date/time separately from match details."""
+    """Read J:COM's full schedule text; preserve airing dates and programme times."""
     url = "https://www2.myjcom.jp/special/tv/sports/volleyball/svleague/schedule.php"
-    # networkidle is unreliable on this page because its embedded widgets keep
-    # network requests open. Wait for the actual channel labels instead.
     page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    labels = page.locator("text=/J SPORTS [1-4] HD/")
-    try:
-        labels.first.wait_for(state="attached", timeout=15000)
-    except Exception as e:
-        raise RuntimeError(f"J:COM programme channel labels did not load: {e}")
-    page.wait_for_timeout(300)
-    label_count = labels.count()
-    if not label_count:
-        raise RuntimeError("J:COM page loaded but no J SPORTS TV channel labels were found")
+    page.wait_for_timeout(400)
+    body = page.locator("body").inner_text(timeout=20000)
+    if not body.strip():
+        raise RuntimeError("J:COM schedule page returned empty text")
 
-    accepted = 0
-    review = 0
-    for i in range(label_count):
-        el = labels.nth(i)
-        item = None
-        last_block = ""
-        # The page nests channel labels at different depths. Try only a few
-        # nearest ancestors and accept the smallest block with one channel,
-        # two explicit dates, both teams, and a programme time range.
-        for depth in range(1, 5):
-            try:
-                block = el.locator(f"xpath=ancestor::div[{depth}]").inner_text(timeout=2500)
-                last_block = block
-            except Exception:
-                continue
-            item = extract_jcom_broadcast_item(block)
-            if item:
-                break
-        if not item:
-            review += 1
-            print("J:COM NEEDS REVIEW:", re.sub(r"\s+", " ", last_block)[:260])
-            continue
-        station, broadcast_date, match, broadcast_time, match_start_time = item
+    items = parse_jcom_schedule_text(body)
+    for station, broadcast_date, match, broadcast_time, match_start_time in items:
         add(rows, station, broadcast_date, match, url, broadcast_time, match_start_time)
-        accepted += 1
         print("J:COM ACCEPTED:", station, broadcast_date, broadcast_time,
               "match start", match_start_time or "unknown", match[0], "vs", match[1])
 
-    print("J:COM CHANNEL BLOCKS:", label_count, "ACCEPTED:", accepted, "NEEDS REVIEW:", review)
-    if accepted == 0:
-        raise RuntimeError(f"J:COM page exposed {label_count} channel labels but no complete dated TV programme blocks")
+    print("J:COM FULL-PAGE AIRINGS PARSED:", len(items))
+    if not items:
+        raise RuntimeError("J:COM page loaded but no complete dated J SPORTS TV programme slots were parsed")
+
 
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
