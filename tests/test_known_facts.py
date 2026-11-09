@@ -133,6 +133,10 @@ def test_published_data_has_no_on_demand_only_entries_and_keeps_gunma_tv():
         and r["away"] == "アランマーレ秋田庄内"
         for r in rows
     )
+    assert not [
+        r for r in rows
+        if "provisional-gunma-tv-home-broadcast" in r.get("source", "")
+    ]
 
 
 def test_reconcile_keeps_same_day_same_card_broadcasts_at_distinct_times():
@@ -321,3 +325,60 @@ def test_duckduckgo_result_parser_does_not_treat_unrecognized_markup_as_empty_re
     with pytest.raises(RuntimeError, match="no recognizable result blocks"):
         _parse_duckduckgo_results("<html><body>temporarily blocked</body></html>")
 
+
+
+def test_reconcile_excludes_unconfirmed_gunma_match_date_placeholders():
+    from scraper import Broadcast, known_facts, reconcile
+    placeholder = Broadcast(
+        "群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知",
+        "provisional-gunma-tv-home-broadcast;match-date-placeholder", ""
+    )
+    confirmed = Broadcast(
+        "群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内",
+        "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860",
+        "13:00", "13:05"
+    )
+    rows = reconcile([placeholder, confirmed])
+    assert not any("provisional-gunma-tv-home-broadcast" in r.source for r in rows)
+    assert any(
+        r.station == "群馬テレビ" and r.broadcast_date == "2026-10-24"
+        and r.home == "群馬グリーンウイングス" and r.away == "アランマーレ秋田庄内"
+        and r.broadcast_time == "13:00" and r.match_start_time == "13:05"
+        for r in rows
+    )
+    assert not any("provisional-gunma-tv-home-broadcast" in r.source for r in known_facts())
+
+
+def test_jcom_replay_keeps_airing_date_and_airing_time_separate_from_match_details():
+    from scraper import extract_jcom_broadcast_item
+    block = (
+        "2026/11/10 2026/11/07 男子 "
+        "ウルフドッグス名古屋ジェイテクトSTINGS愛知 "
+        "11/07(土) 14:35 録画 J SPORTS 1 HD CS J SPORTS 1 HD 録画 10:00〜13:00"
+    )
+    assert extract_jcom_broadcast_item(block) == (
+        "J SPORTS 1", "2026-11-10",
+        ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+        "10:00", "14:35"
+    )
+
+
+def test_jcom_parser_rejects_missing_airing_date_or_explicit_programme_time():
+    from scraper import extract_jcom_broadcast_item
+    teams = "ウルフドッグス名古屋ジェイテクトSTINGS愛知"
+    assert extract_jcom_broadcast_item(
+        f"2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD 10:00〜13:00"
+    ) is None
+    assert extract_jcom_broadcast_item(
+        f"2026/11/10 2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD"
+    ) is None
+    assert extract_jcom_broadcast_item(
+        f"2026/11/10 2026/11/07 {teams} 生中継 J SPORTSオンデマンド 12:55〜17:15"
+    ) is None
+
+
+def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
+    html_path = Path(__file__).parents[1] / "site" / "index.html"
+    html = html_path.read_text(encoding="utf-8")
+    assert "provisional-gunma-tv-home-broadcast" not in html
+    assert "今季ホーム戦18試合を全て放送" not in html

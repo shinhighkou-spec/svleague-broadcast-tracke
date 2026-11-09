@@ -117,15 +117,6 @@
     "match_start_time": "16:35"
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-10-25",
-    "home": "群馬グリーンウイングス",
-    "away": "アランマーレ秋田庄内",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-10-25",
     "home": "ヴィクトリーナ姫路",
@@ -387,15 +378,6 @@
     "match_start_time": ""
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-11-21",
-    "home": "群馬グリーンウイングス",
-    "away": "アリーザ愛知",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 1",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
@@ -412,15 +394,6 @@
     "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
     "broadcast_time": "",
     "match_start_time": "13:05"
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-11-22",
-    "home": "群馬グリーンウイングス",
-    "away": "アリーザ愛知",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
@@ -504,15 +477,6 @@
     "match_start_time": ""
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-12-05",
-    "home": "群馬グリーンウイングス",
-    "away": "SAGA久光スプリングス",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 1",
     "broadcast_date": "2026-12-05",
     "home": "広島サンダーズ",
@@ -538,15 +502,6 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "18:05"
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-12-06",
-    "home": "群馬グリーンウイングス",
-    "away": "SAGA久光スプリングス",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
@@ -621,15 +576,6 @@
     "match_start_time": "14:05"
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-12-26",
-    "home": "群馬グリーンウイングス",
-    "away": "NECレッドロケッツ川崎",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2026-12-26",
     "home": "東レアローズ滋賀",
@@ -655,15 +601,6 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "14:05"
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2026-12-27",
-    "home": "群馬グリーンウイングス",
-    "away": "NECレッドロケッツ川崎",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
   },
   {
     "station": "GAORA SPORTS",
@@ -747,15 +684,6 @@
     "match_start_time": "13:05"
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-01-23",
-    "home": "群馬グリーンウイングス",
-    "away": "ＫＵＲＯＢＥアクアフェアリーズ富山",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "GAORA SPORTS",
     "broadcast_date": "2027-01-23",
     "home": "ヴィクトリーナ姫路",
@@ -763,15 +691,6 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "14:05"
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-01-24",
-    "home": "群馬グリーンウイングス",
-    "away": "ＫＵＲＯＢＥアクアフェアリーズ富山",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
   },
   {
     "station": "GAORA SPORTS",
@@ -783,51 +702,6 @@
     "match_start_time": "14:05"
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-06",
-    "home": "群馬グリーンウイングス",
-    "away": "PFUブルーキャッツ石川かほく",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-07",
-    "home": "群馬グリーンウイングス",
-    "away": "PFUブルーキャッツ石川かほく",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-20",
-    "home": "群馬グリーンウイングス",
-    "away": "Astemoリヴァーレ茨城",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-21",
-    "home": "群馬グリーンウイングス",
-    "away": "Astemoリヴァーレ茨城",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-27",
-    "home": "群馬グリーンウイングス",
-    "away": "埼玉上尾メディックス",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2027-02-27",
     "home": "ジェイテクトSTINGS愛知",
@@ -837,15 +711,6 @@
     "match_start_time": "14:05"
   },
   {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-02-28",
-    "home": "群馬グリーンウイングス",
-    "away": "埼玉上尾メディックス",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2027-02-28",
     "home": "ジェイテクトSTINGS愛知",
@@ -853,23 +718,5 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "14:05"
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-03-20",
-    "home": "群馬グリーンウイングス",
-    "away": "デンソーエアリービーズ",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "群馬テレビ",
-    "broadcast_date": "2027-03-21",
-    "home": "群馬グリーンウイングス",
-    "away": "デンソーエアリービーズ",
-    "source": "provisional-gunma-tv-home-broadcast;match-date-placeholder;https://www.gtv.co.jp/timetable/;https://gunmagreenwings.jp/games/",
-    "broadcast_time": "",
-    "match_start_time": ""
   }
 ]
