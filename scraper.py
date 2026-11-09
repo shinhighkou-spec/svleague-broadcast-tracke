@@ -1836,11 +1836,13 @@ def _parse_gunma_tv_pdf_schedule(text, year=2026, month=11):
     if not re.search(r"大同生命SV\.?LEAGUEWOMEN", card, re.I):
         return []
 
+    # The PDF's text layer may place LIVE/time text between the first
+    # explicit month/day and the second day (the visual card shows 21日・22日).
     date_pair = re.search(
-        rf"{int(month)}月(\d{{1,2}})日[・、,／/]*(\d{{1,2}})日",
+        rf"{int(month)}月(\d{{1,2}})日.{{0,100}}?(\d{{1,2}})日",
         card,
     )
-    if not date_pair:
+    if not date_pair or int(date_pair.group(2)) != int(date_pair.group(1)) + 1:
         return []
     live_time = re.search(
         r"LIVE(\d{1,2}):(\d{2})[～〜~–—-]\d{1,2}:\d{2}",
