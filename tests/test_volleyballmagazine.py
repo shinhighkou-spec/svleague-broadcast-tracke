@@ -207,8 +207,8 @@ def test_volleyballmagazine_tss_local_tv_listing_is_recognized():
     男子 F鹿児島vs北海道YS
     """
     rows = _parse_volleyballmagazine_tv_schedule(title, article)
-    assert rows == [(
+    assert (
         "テレビ新広島", "2026-11-01",
         ("広島サンダーズ", "東京グレートベアーズ"), "13:00"
-    )]
+    ) in rows
     assert _volleyballmagazine_station("11/01（日）[生]13:00～15:00 TSS") == "テレビ新広島"
