@@ -1,5 +1,6 @@
 from __future__ import annotations
-import csv, json, os, re, urllib.parse
+import csv, json, os, re, urllib.parse, unicodedata
+from io import BytesIO
 import xml.etree.ElementTree as ET
 from bs4 import BeautifulSoup
 
@@ -19,6 +20,7 @@ from dataclasses import dataclass, asdict
 from datetime import date, datetime
 from pathlib import Path
 from playwright.sync_api import sync_playwright
+from pypdf import PdfReader
 
 ROOT = Path(__file__).resolve().parent
 DATA = ROOT / "data"
@@ -133,6 +135,8 @@ def clean_station(s: str) -> str:
     s = re.sub(r"\s+", " ", s).strip()
     aliases = {
         "GAORA": "GAORA SPORTS",
+        "TSS": "テレビ新広島",
+        "TSSテレビ新広島": "テレビ新広島",
         "サンテレビ": "サンテレビジョン",
         "OHK岡山放送": "岡山放送",
         "TSCテレビせとうち": "テレビせとうち",
@@ -224,53 +228,79 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     tm = parse_time(text)
     return stations[0], d, match, tm
 
-def extract_jcom_broadcast_item(text: str):
-    """Parse a single J:COM programme block without confusing match and airing dates/times.
+def parse_jcom_schedule_text(text: str):
+    """Parse J:COM's full page text using its broadcast-date / match-date pairs.
 
-    J:COM blocks place the broadcast date first, the original match date second,
-    and the actual TV slot as a time range after the channel label. All three
-    must be present in the same small DOM block before a row is accepted.
+    Each programme card contains two ISO dates in order: the actual airing date,
+    then the original match date. TV channels have an explicit J SPORTS HD label
+    followed by a programme time range. Match-start clocks are read only from
+    the match-details portion before the channel listings.
     """
-    text = re.sub(r"\s+", " ", str(text or "")).strip()
-    stations = _recognized_station_names(text)
-    if len(stations) != 1 or not stations[0].startswith("J SPORTS "):
-        return None
-    if not re.search(r"録画|生中継|生\s+J SPORTS", text):
-        return None
+    body = re.sub(r"\r", "", str(text or ""))
+    date_matches = list(re.finditer(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", body))
+    results = []
+    seen = set()
+    i = 0
+    while i + 1 < len(date_matches):
+        first_date = date_matches[i]
+        second_date = date_matches[i + 1]
+        broadcast_date = parse_date(first_date.group(0))
+        match_date = parse_date(second_date.group(0))
+        if (
+            not broadcast_date or not match_date
+            or not valid_season_date(broadcast_date)
+            or not valid_season_date(match_date)
+        ):
+            i += 1
+            continue
 
-    date_tokens = re.findall(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", text)
-    if len(date_tokens) < 2:
-        return None
-    broadcast_date = parse_date(date_tokens[0])
-    match_date = parse_date(date_tokens[1])
-    if not broadcast_date or not match_date:
-        return None
-    if not valid_season_date(broadcast_date) or not valid_season_date(match_date):
-        return None
+        segment_end = date_matches[i + 2].start() if i + 2 < len(date_matches) else len(body)
+        segment = body[first_date.start():segment_end]
+        match = parse_match(segment)
+        if not match:
+            i += 2
+            continue
 
-    match = parse_match(text)
-    if not match:
-        return None
+        channel_matches = list(re.finditer(
+            r"(?:録画|生中継|生)\s*(J SPORTS [1-4])\s*HD",
+            segment,
+            re.I,
+        ))
+        if not channel_matches:
+            i += 2
+            continue
 
-    # A time range belongs to the programme slot. Do not use the earlier
-    # match-start clock (e.g. 14:35) as the broadcast start (e.g. 10:00).
-    airing_range = re.search(
-        r"(?<!\d)(\d{1,2}):(\d{2})\s*[〜～~–—-]\s*\d{1,2}:\d{2}(?!\d)",
-        text,
-    )
-    if not airing_range:
-        return None
-    airing_hour = int(airing_range.group(1))
-    airing_minute = int(airing_range.group(2))
-    if airing_hour > 23 or airing_minute > 59:
-        return None
-    broadcast_time = f"{airing_hour:02d}:{airing_minute:02d}"
+        second_date_end = second_date.end() - first_date.start()
+        match_start_segment = segment[second_date_end:channel_matches[0].start()]
+        match_start_time = parse_time(match_start_segment)
 
-    after_match_date = text.split(date_tokens[1], 1)[1]
-    station_match = re.search(re.escape(stations[0]), after_match_date)
-    match_segment = after_match_date[:station_match.start()] if station_match else after_match_date
-    match_start_time = parse_time(match_segment)
-    return stations[0], broadcast_date, match, broadcast_time, match_start_time
+        for index, channel_match in enumerate(channel_matches):
+            channel_end = (
+                channel_matches[index + 1].start()
+                if index + 1 < len(channel_matches) else len(segment)
+            )
+            channel_block = segment[channel_match.start():channel_end]
+            airing_range = re.search(
+                r"(?<!\d)(\d{1,2}):(\d{2})\s*[〜～~–—-]\s*\d{1,2}:\d{2}(?!\d)",
+                channel_block,
+            )
+            if not airing_range:
+                continue
+            hour = int(airing_range.group(1))
+            minute = int(airing_range.group(2))
+            if hour > 23 or minute > 59:
+                continue
+            broadcast_time = f"{hour:02d}:{minute:02d}"
+            station = clean_station(channel_match.group(1))
+            key = (station, broadcast_date, match[0], match[1], broadcast_time)
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append((station, broadcast_date, match, broadcast_time, match_start_time))
+
+        i += 2
+
+    return results
 
 
 def add(rows, station, d, match, source, t="", match_start_time=""):
@@ -538,52 +568,24 @@ def scrape_jsports_official(page, rows):
     print("J SPORTS OFFICIAL CANDIDATES:", len(unique))
 
 def scrape_jcom(page, rows):
-    """Read J:COM's TV programme slots, preserving replay date/time separately from match details."""
+    """Read J:COM's full schedule text; preserve airing dates and programme times."""
     url = "https://www2.myjcom.jp/special/tv/sports/volleyball/svleague/schedule.php"
-    # networkidle is unreliable on this page because its embedded widgets keep
-    # network requests open. Wait for the actual channel labels instead.
     page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    labels = page.locator("text=/J SPORTS [1-4] HD/")
-    try:
-        labels.first.wait_for(state="attached", timeout=15000)
-    except Exception as e:
-        raise RuntimeError(f"J:COM programme channel labels did not load: {e}")
-    page.wait_for_timeout(300)
-    label_count = labels.count()
-    if not label_count:
-        raise RuntimeError("J:COM page loaded but no J SPORTS TV channel labels were found")
+    page.wait_for_timeout(400)
+    body = page.locator("body").inner_text(timeout=20000)
+    if not body.strip():
+        raise RuntimeError("J:COM schedule page returned empty text")
 
-    accepted = 0
-    review = 0
-    for i in range(label_count):
-        el = labels.nth(i)
-        item = None
-        last_block = ""
-        # The page nests channel labels at different depths. Try only a few
-        # nearest ancestors and accept the smallest block with one channel,
-        # two explicit dates, both teams, and a programme time range.
-        for depth in range(1, 5):
-            try:
-                block = el.locator(f"xpath=ancestor::div[{depth}]").inner_text(timeout=2500)
-                last_block = block
-            except Exception:
-                continue
-            item = extract_jcom_broadcast_item(block)
-            if item:
-                break
-        if not item:
-            review += 1
-            print("J:COM NEEDS REVIEW:", re.sub(r"\s+", " ", last_block)[:260])
-            continue
-        station, broadcast_date, match, broadcast_time, match_start_time = item
+    items = parse_jcom_schedule_text(body)
+    for station, broadcast_date, match, broadcast_time, match_start_time in items:
         add(rows, station, broadcast_date, match, url, broadcast_time, match_start_time)
-        accepted += 1
         print("J:COM ACCEPTED:", station, broadcast_date, broadcast_time,
               "match start", match_start_time or "unknown", match[0], "vs", match[1])
 
-    print("J:COM CHANNEL BLOCKS:", label_count, "ACCEPTED:", accepted, "NEEDS REVIEW:", review)
-    if accepted == 0:
-        raise RuntimeError(f"J:COM page exposed {label_count} channel labels but no complete dated TV programme blocks")
+    print("J:COM FULL-PAGE AIRINGS PARSED:", len(items))
+    if not items:
+        raise RuntimeError("J:COM page loaded but no complete dated J SPORTS TV programme slots were parsed")
+
 
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
@@ -1541,6 +1543,9 @@ def _volleyballmagazine_station(line):
         return "GAORA SPORTS"
     if "サンテレビ" in compact:
         return "サンテレビジョン"
+    # Volleyball Magazine abbreviates Television Shin-Hiroshima as TSS.
+    if compact.endswith("TSS") or "TSSテレビ新広島" in compact:
+        return "テレビ新広島"
     for station in sorted(VALID_STATIONS, key=len, reverse=True):
         station_compact = re.sub(r"\s+", "", station).replace("　", "")
         if station_compact and station_compact in compact:
@@ -1752,8 +1757,8 @@ def scrape_volleyballmagazine(page, rows):
 
 # The official homepage now links the current monthly timetable from this URL;
 # keep the legacy page as a fallback because its text sometimes lags the current image.
-GUNMA_TV_CURRENT_URL = "https://gtv.e-business.ne.jp/timetable/"
-GUNMA_TV_URL = "https://www.gtv.co.jp/timetable/"
+GUNMA_TV_CURRENT_URL = "https://www.gtv.co.jp/timetable/"
+GUNMA_TV_URL = "https://gtv.e-business.ne.jp/timetable/"
 GUNMA_TV_URLS = (GUNMA_TV_CURRENT_URL, GUNMA_TV_URL)
 
 def _parse_gunma_tv_airtime(text):
@@ -1813,6 +1818,111 @@ def _parse_gunma_tv_schedule(text):
             found.append((broadcast_date, match, airtime))
     return found
 
+
+def _parse_gunma_tv_pdf_schedule(text, year=2026, month=11):
+    """Parse only an explicit two-day live SV League card from Gunma TV's monthly PDF."""
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    compact = re.sub(r"\s+", "", normalized)
+    home = "群馬グリーンウイングス"
+    away = "アリーザ愛知"
+    home_pos = compact.find(home)
+    away_pos = compact.find(away)
+    if home_pos < 0 or away_pos < 0:
+        return []
+
+    start = max(0, min(home_pos, away_pos) - 600)
+    end = min(len(compact), max(home_pos + len(home), away_pos + len(away)) + 600)
+    card = compact[start:end]
+    if not re.search(r"大同生命SV\.?LEAGUEWOMEN", card, re.I):
+        return []
+
+    # The PDF's text layer may place LIVE/time text between the first
+    # explicit month/day and the second day (the visual card shows 21日・22日).
+    date_pair = re.search(
+        rf"{int(month)}月(\d{{1,2}})日.{{0,100}}?(\d{{1,2}})日",
+        card,
+    )
+    if not date_pair or int(date_pair.group(2)) != int(date_pair.group(1)) + 1:
+        return []
+    live_time = re.search(
+        r"LIVE(\d{1,2}):(\d{2})[～〜~–—-]\d{1,2}:\d{2}",
+        card,
+        re.I,
+    )
+    if not live_time:
+        return []
+    hour, minute = int(live_time.group(1)), int(live_time.group(2))
+    if hour > 23 or minute > 59:
+        return []
+    broadcast_time = f"{hour:02d}:{minute:02d}"
+
+    match = parse_match(card)
+    if not match or match[0] != home or match[1] != away:
+        return []
+
+    found = []
+    for day_text in date_pair.groups():
+        day = int(day_text)
+        try:
+            broadcast_date = date(int(year), int(month), day).isoformat()
+        except ValueError:
+            continue
+        if valid_season_date(broadcast_date):
+            item = (broadcast_date, match, broadcast_time)
+            if item not in found:
+                found.append(item)
+    return found
+
+
+def _fetch_gunma_tv_current_month_pdf(page, base_url, body):
+    """Download only the PDF explicitly labelled for the current timetable month."""
+    month_match = re.search(r"(20\d{2})年\s*(\d{1,2})月", str(body or ""))
+    if not month_match:
+        print("GUNMA TV PDF NEEDS REVIEW: current timetable month not identifiable")
+        return []
+    year, month = int(month_match.group(1)), int(month_match.group(2))
+    month_label = f"{year}年{month}月"
+    links = page.locator("a[href]")
+    pdf_url = ""
+    for i in range(min(links.count(), 200)):
+        link = links.nth(i)
+        try:
+            href = link.get_attribute("href") or ""
+            if ".pdf" not in href.casefold():
+                continue
+            title = re.sub(r"\s+", " ", link.inner_text(timeout=300)).strip()
+            if month_label not in title:
+                continue
+            pdf_url = urllib.parse.urljoin(base_url, href)
+            break
+        except Exception:
+            continue
+    if not pdf_url:
+        print("GUNMA TV CURRENT MONTH PDF NOT FOUND:", month_label, base_url)
+        return []
+
+    try:
+        response = page.context.request.get(pdf_url, timeout=20000)
+        if not response.ok:
+            raise RuntimeError(f"HTTP {response.status}")
+        pdf_bytes = response.body()
+        if not pdf_bytes.startswith(b"%PDF") or len(pdf_bytes) > 12 * 1024 * 1024:
+            raise RuntimeError(f"unexpected PDF signature or size ({len(pdf_bytes)} bytes)")
+        reader = PdfReader(BytesIO(pdf_bytes), strict=False)
+        if not 1 <= len(reader.pages) <= 10:
+            raise RuntimeError(f"unexpected page count: {len(reader.pages)}")
+        pdf_text = "\n".join(page_obj.extract_text() or "" for page_obj in reader.pages)
+    except Exception as e:
+        print("GUNMA TV PDF FETCH/PARSE ERROR:", pdf_url, e)
+        return []
+
+    parsed = _parse_gunma_tv_pdf_schedule(pdf_text, year=year, month=month)
+    if not parsed:
+        print("GUNMA TV PDF NEEDS REVIEW:", pdf_url, "| extracted text:", repr(pdf_text[:900]))
+        return []
+    return [(broadcast_date, match, airtime, pdf_url) for broadcast_date, match, airtime in parsed]
+
+
 def _log_gunma_tv_timetable_attachments(page, base_url):
     """Log linked monthly images/PDFs when the text view does not expose a dated airing."""
     try:
@@ -1856,17 +1966,28 @@ def scrape_gunma_tv(page, rows):
                 _log_gunma_tv_timetable_attachments(page, timetable_url)
                 continue
             parsed = _parse_gunma_tv_schedule(body)
-            if not parsed:
-                message = f"no dated matchup with explicit broadcast-start time at {timetable_url}"
-                failures.append(message)
-                print("GUNMA TV NEEDS REVIEW:", message, "| page text:", repr(body[:500]))
-                _log_gunma_tv_timetable_attachments(page, timetable_url)
-                continue
-            for broadcast_date, match, airtime in parsed:
-                add(rows, "群馬テレビ", broadcast_date, match, timetable_url, airtime)
-                print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", timetable_url)
-            print("GUNMA TV PARSED ROWS:", len(parsed), "| source:", timetable_url)
-            return
+            if parsed:
+                for broadcast_date, match, airtime in parsed:
+                    add(rows, "群馬テレビ", broadcast_date, match, timetable_url, airtime)
+                    print("GUNMA TV ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", timetable_url)
+                print("GUNMA TV PARSED ROWS:", len(parsed), "| source:", timetable_url)
+                return
+
+            # The official current page links a monthly PDF. It contains the
+            # dated two-day live card even when the text-only timetable omits it.
+            pdf_rows = _fetch_gunma_tv_current_month_pdf(page, timetable_url, body)
+            if pdf_rows:
+                for broadcast_date, match, airtime, pdf_url in pdf_rows:
+                    add(rows, "群馬テレビ", broadcast_date, match, pdf_url, airtime)
+                    print("GUNMA TV PDF ACCEPTED:", broadcast_date, airtime, match[0], "vs", match[1], "|", pdf_url)
+                print("GUNMA TV PDF PARSED ROWS:", len(pdf_rows))
+                return
+
+            message = f"no dated matchup with explicit broadcast-start time in text or current-month PDF at {timetable_url}"
+            failures.append(message)
+            print("GUNMA TV NEEDS REVIEW:", message, "| page text:", repr(body[:500]))
+            _log_gunma_tv_timetable_attachments(page, timetable_url)
+            continue
         except Exception as e:
             message = f"{timetable_url}: {e}"
             failures.append(message)
@@ -2162,6 +2283,13 @@ def known_facts():
         Broadcast("テレビ神奈川","2026-10-17","NECレッドロケッツ川崎","ヴィクトリーナ姫路","known-volleyballking-tvk","18:30"),
         # Official Gunma TV timetable gives 13:00 airing; Volleyball Magazine X fixture graphic gives the 13:05 match start (2026-10-24).
         Broadcast("群馬テレビ", "2026-10-24", "群馬グリーンウイングス", "アランマーレ秋田庄内", "https://www.gtv.co.jp/timetable/ | https://x.com/vbm_link/status/2113610880101568860", "13:00"),
+        # The official November PDF explicitly lists the Nov 21-22 live card at 13:00;
+        # the club's official match page confirms both 13:05 match starts.
+        Broadcast("群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知", "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/", "13:00", "13:05"),
+        Broadcast("群馬テレビ", "2026-11-22", "群馬グリーンウイングス", "アリーザ愛知", "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf | https://gunmagreenwings.jp/homegame/20261121_22/", "13:00", "13:05"),
+        # TSS's own October news article confirms a live broadcast on Nov 1 at 13:00;
+        # the November TV schedule independently identifies the matchup and 13:00-15:00 slot.
+        Broadcast("テレビ新広島", "2026-11-01", "広島サンダーズ", "東京グレートベアーズ", "https://www.tss-tv.co.jp/tssnews/000036092.html | https://volleyballmagazine.jp/703335/", "13:00", "13:05"),
         # Preserve the two previously confirmed Sun TV listings even if regional search is unavailable.
         Broadcast("サンテレビジョン", "2026-10-24", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
         Broadcast("サンテレビジョン", "2026-10-25", "ヴィクトリーナ姫路", "PFUブルーキャッツ石川かほく", "previously-confirmed-user-shared-tv-listing", "12:00"),
@@ -2202,7 +2330,7 @@ def reconcile(rows):
         source = (row.source or "").casefold()
         if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable", "gtv.e-business.ne.jp/timetable")):
             return 7
-        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp")):
+        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp", "tss-tv.co.jp")):
             return 6
         if "volleyballmagazine.jp" in source:
             return 3

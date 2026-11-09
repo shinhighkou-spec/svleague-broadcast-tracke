@@ -349,32 +349,66 @@ def test_reconcile_excludes_unconfirmed_gunma_match_date_placeholders():
     assert not any("provisional-gunma-tv-home-broadcast" in r.source for r in known_facts())
 
 
-def test_jcom_replay_keeps_airing_date_and_airing_time_separate_from_match_details():
-    from scraper import extract_jcom_broadcast_item
-    block = (
-        "2026/11/10 2026/11/07 男子 "
-        "ウルフドッグス名古屋ジェイテクトSTINGS愛知 "
-        "11/07(土) 14:35 録画 J SPORTS 1 HD CS J SPORTS 1 HD 録画 10:00〜13:00"
-    )
-    assert extract_jcom_broadcast_item(block) == (
-        "J SPORTS 1", "2026-11-10",
-        ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
-        "10:00", "14:35"
-    )
+def test_jcom_full_schedule_parser_keeps_replay_date_and_time_separate():
+    from scraper import parse_jcom_schedule_text
+    body = """
+    2026/11/10
+    2026/11/07
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/07(土) 14:35
+    録画 J SPORTS 1 HD
+    CS J SPORTS 1 HD 録画 10:00〜13:00
+    録画 J SPORTS 3 HD
+    CS J SPORTS 3 HD 録画 16:00〜19:00
+    2026/11/11
+    2026/11/08
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/08(日) 13:35
+    録画 J SPORTS 2 HD
+    CS J SPORTS 2 HD 録画 22:30〜25:30
+    """
+    assert parse_jcom_schedule_text(body) == [
+        (
+            "J SPORTS 1", "2026-11-10",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "10:00", "14:35"
+        ),
+        (
+            "J SPORTS 3", "2026-11-10",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "16:00", "14:35"
+        ),
+        (
+            "J SPORTS 2", "2026-11-11",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "22:30", "13:35"
+        ),
+    ]
 
 
-def test_jcom_parser_rejects_missing_airing_date_or_explicit_programme_time():
-    from scraper import extract_jcom_broadcast_item
-    teams = "ウルフドッグス名古屋ジェイテクトSTINGS愛知"
-    assert extract_jcom_broadcast_item(
-        f"2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD 10:00〜13:00"
-    ) is None
-    assert extract_jcom_broadcast_item(
-        f"2026/11/10 2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD"
-    ) is None
-    assert extract_jcom_broadcast_item(
-        f"2026/11/10 2026/11/07 {teams} 生中継 J SPORTSオンデマンド 12:55〜17:15"
-    ) is None
+def test_jcom_parser_rejects_on_demand_only_and_incomplete_tv_blocks():
+    from scraper import parse_jcom_schedule_text
+    on_demand = """
+    2026/11/14
+    2026/11/14
+    女子
+    SAGA久光スプリングス PFUブルーキャッツ石川かほく
+    11/14(土) 13:05
+    配信 J SPORTSオンデマンド 生中継 12:55〜17:15
+    """
+    incomplete = """
+    2026/11/10
+    2026/11/07
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/07(土) 14:35
+    J SPORTS 1 HD 録画
+    """
+    assert parse_jcom_schedule_text(on_demand) == []
+    assert parse_jcom_schedule_text(incomplete) == []
+
 
 
 def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
@@ -382,3 +416,72 @@ def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
     html = html_path.read_text(encoding="utf-8")
     assert "provisional-gunma-tv-home-broadcast" not in html
     assert "今季ホーム戦18試合を全て放送" not in html
+
+
+def test_gunma_tv_pdf_parser_extracts_both_confirmed_live_dates():
+    from scraper import _parse_gunma_tv_pdf_schedule
+    pdf_text = """
+    2026年11月 番組表
+    11月21日・22日 LIVE 13:00～15:00
+    群馬グリーンウイングス
+    アリーザ愛知
+    大同生命ＳＶ．ＬＥＡＧＵＥ ＷＯＭＥＮ
+    """
+    assert _parse_gunma_tv_pdf_schedule(pdf_text, year=2026, month=11) == [
+        (
+            "2026-11-21",
+            ("群馬グリーンウイングス", "アリーザ愛知"),
+            "13:00"
+        ),
+        (
+            "2026-11-22",
+            ("群馬グリーンウイングス", "アリーザ愛知"),
+            "13:00"
+        ),
+    ]
+
+
+def test_gunma_tv_pdf_parser_rejects_generic_or_incomplete_mentions():
+    from scraper import _parse_gunma_tv_pdf_schedule
+    assert _parse_gunma_tv_pdf_schedule(
+        "11月21日・22日 LIVE 13:00～15:00 大同生命SV.LEAGUE WOMEN",
+        year=2026, month=11
+    ) == []
+    assert _parse_gunma_tv_pdf_schedule(
+        "11月21日・22日 13:00～15:00 群馬グリーンウイングス アリーザ愛知 大同生命SV.LEAGUE WOMEN",
+        year=2026, month=11
+    ) == []
+
+
+def test_gunma_tv_november_official_broadcast_facts_keep_airtime_separate():
+    from scraper import known_facts
+    expected = {
+        "2026-11-21": ("群馬グリーンウイングス", "アリーザ愛知"),
+        "2026-11-22": ("群馬グリーンウイングス", "アリーザ愛知"),
+    }
+    rows = [
+        r for r in known_facts()
+        if r.station == "群馬テレビ" and r.broadcast_date in expected
+    ]
+    assert len(rows) == 2
+    for row in rows:
+        assert (row.home, row.away) == expected[row.broadcast_date]
+        assert row.broadcast_time == "13:00"
+        assert row.match_start_time == "13:05"
+        assert "gtv.co.jp/timetable/pdf/" in row.source
+        assert "gunmagreenwings.jp/homegame/20261121_22/" in row.source
+
+
+def test_tss_official_live_broadcast_is_preserved_with_separate_airtime_and_match_start():
+    from scraper import known_facts
+    row = next(
+        r for r in known_facts()
+        if r.station == "テレビ新広島"
+        and r.broadcast_date == "2026-11-01"
+        and r.home == "広島サンダーズ"
+        and r.away == "東京グレートベアーズ"
+    )
+    assert row.broadcast_time == "13:00"
+    assert row.match_start_time == "13:05"
+    assert "tss-tv.co.jp" in row.source
+    assert "volleyballmagazine.jp/703335/" in row.source
