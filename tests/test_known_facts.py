@@ -349,32 +349,66 @@ def test_reconcile_excludes_unconfirmed_gunma_match_date_placeholders():
     assert not any("provisional-gunma-tv-home-broadcast" in r.source for r in known_facts())
 
 
-def test_jcom_replay_keeps_airing_date_and_airing_time_separate_from_match_details():
-    from scraper import extract_jcom_broadcast_item
-    block = (
-        "2026/11/10 2026/11/07 男子 "
-        "ウルフドッグス名古屋ジェイテクトSTINGS愛知 "
-        "11/07(土) 14:35 録画 J SPORTS 1 HD CS J SPORTS 1 HD 録画 10:00〜13:00"
-    )
-    assert extract_jcom_broadcast_item(block) == (
-        "J SPORTS 1", "2026-11-10",
-        ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
-        "10:00", "14:35"
-    )
+def test_jcom_full_schedule_parser_keeps_replay_date_and_time_separate():
+    from scraper import parse_jcom_schedule_text
+    body = """
+    2026/11/10
+    2026/11/07
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/07(土) 14:35
+    録画 J SPORTS 1 HD
+    CS J SPORTS 1 HD 録画 10:00〜13:00
+    録画 J SPORTS 3 HD
+    CS J SPORTS 3 HD 録画 16:00〜19:00
+    2026/11/11
+    2026/11/08
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/08(日) 13:35
+    録画 J SPORTS 2 HD
+    CS J SPORTS 2 HD 録画 22:30〜25:30
+    """
+    assert parse_jcom_schedule_text(body) == [
+        (
+            "J SPORTS 1", "2026-11-10",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "10:00", "14:35"
+        ),
+        (
+            "J SPORTS 3", "2026-11-10",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "16:00", "14:35"
+        ),
+        (
+            "J SPORTS 2", "2026-11-11",
+            ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知"),
+            "22:30", "13:35"
+        ),
+    ]
 
 
-def test_jcom_parser_rejects_missing_airing_date_or_explicit_programme_time():
-    from scraper import extract_jcom_broadcast_item
-    teams = "ウルフドッグス名古屋ジェイテクトSTINGS愛知"
-    assert extract_jcom_broadcast_item(
-        f"2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD 10:00〜13:00"
-    ) is None
-    assert extract_jcom_broadcast_item(
-        f"2026/11/10 2026/11/07 {teams} 11/07(土) 14:35 録画 J SPORTS 1 HD"
-    ) is None
-    assert extract_jcom_broadcast_item(
-        f"2026/11/10 2026/11/07 {teams} 生中継 J SPORTSオンデマンド 12:55〜17:15"
-    ) is None
+def test_jcom_parser_rejects_on_demand_only_and_incomplete_tv_blocks():
+    from scraper import parse_jcom_schedule_text
+    on_demand = """
+    2026/11/14
+    2026/11/14
+    女子
+    SAGA久光スプリングス PFUブルーキャッツ石川かほく
+    11/14(土) 13:05
+    配信 J SPORTSオンデマンド 生中継 12:55〜17:15
+    """
+    incomplete = """
+    2026/11/10
+    2026/11/07
+    男子
+    ウルフドッグス名古屋 ジェイテクトSTINGS愛知
+    11/07(土) 14:35
+    J SPORTS 1 HD 録画
+    """
+    assert parse_jcom_schedule_text(on_demand) == []
+    assert parse_jcom_schedule_text(incomplete) == []
+
 
 
 def test_public_html_does_not_show_unconfirmed_gunma_placeholders():
