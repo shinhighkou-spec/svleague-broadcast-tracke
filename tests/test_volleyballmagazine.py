@@ -187,8 +187,8 @@ def test_gunma_tv_airtime_parser_uses_start_of_explicit_time_range():
 
 def test_current_gunma_tv_timetable_is_tried_before_legacy_page():
     assert GUNMA_TV_URLS == (
-        "https://gtv.e-business.ne.jp/timetable/",
         "https://www.gtv.co.jp/timetable/",
+        "https://gtv.e-business.ne.jp/timetable/",
     )
 
 
