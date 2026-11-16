@@ -307,3 +307,17 @@ def test_known_wrong_jsports_channel_assignments_are_removed():
         and row.broadcast_time == "12:45"
         for row in rows
     )
+
+
+def test_jsports_live_airing_is_not_marked_replay_by_footer_legend():
+    detail = """
+    生 無料
+    PFUブルーキャッツ石川かほく vs. 埼玉上尾メディックス(11/21)
+    開催日：2026年11月21日
+    放送日：2026年11月21日（土）
+    放送時間：午後 0時 45分～午後 4時 00分
+    番組表のアイコンについて 同日24時間以内の録画放送です
+    """
+    assert parse_jsports_program_detail(detail) == (
+        "2026-11-21", "12:45", "2026-11-21", False
+    )
