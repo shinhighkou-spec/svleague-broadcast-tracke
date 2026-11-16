@@ -444,14 +444,14 @@ def parse_jsports_program_links(anchors, home: str, away: str):
     out = []
     seen = set()
     for title, href in anchors:
-        title = re.sub(r"\\s+", " ", str(title or "")).strip()
+        title = re.sub(r"\s+", " ", str(title or "")).strip()
         if not href or "program_guide/" not in str(href):
             continue
         if "大同生命SVリーグ" not in title and "GOLDEN LIVE" not in title:
             continue
         if parse_match(title) != (home, away):
             continue
-        date_match = re.search(r"[（(]\\s*(\\d{1,2})/(\\d{1,2})\\s*[）)]", title)
+        date_match = re.search(r"[（(]\s*(\d{1,2})/(\d{1,2})\s*[）)]", title)
         if not date_match:
             continue
         month, day = int(date_match.group(1)), int(date_match.group(2))
@@ -464,18 +464,17 @@ def parse_jsports_program_links(anchors, home: str, away: str):
             out.append((title, str(href), (home, away), match_date))
     return out
 
-
 def parse_jsports_program_detail(text: str):
     """Read actual airing date/time and original match date from a J SPORTS programme page."""
-    compact = re.sub(r"\\s+", " ", str(text or "")).strip()
+    compact = re.sub(r"\s+", " ", str(text or "")).strip()
     airing_date = re.search(
-        r"放送日[：:]\\s*(\\d{4})年\\s*(\\d{1,2})月\\s*(\\d{1,2})日", compact
+        r"放送日[：:]\s*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日", compact
     )
     airing_time = re.search(
-        r"放送時間[：:]\\s*(午前|午後|深夜)\\s*(\\d{1,2})時\\s*(\\d{2})分", compact
+        r"放送時間[：:]\s*(午前|午後|深夜)\s*(\d{1,2})時\s*(\d{2})分", compact
     )
     match_date = re.search(
-        r"開催日[：:]\\s*(\\d{4})年\\s*(\\d{1,2})月\\s*(\\d{1,2})日", compact
+        r"開催日[：:]\s*(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日", compact
     )
     if not (airing_date and airing_time and match_date):
         return None
@@ -496,9 +495,12 @@ def parse_jsports_program_detail(text: str):
     broadcast_time = f"{hour:02d}:{minute}"
     if not valid_season_date(broadcast_date) or not valid_season_date(original_match_date):
         return None
+    # Only inspect the programme header/icons before the match-date field.
+    # The page footer explains the "同日" icon on every programme page.
+    programme_header = compact.split("開催日", 1)[0]
     is_replay = (
         broadcast_date != original_match_date
-        or any(token in compact for token in ("同日", "録画", "再放送"))
+        or any(token in programme_header for token in ("同日", "録画", "再放送"))
     )
     return broadcast_date, broadcast_time, original_match_date, is_replay
 
@@ -603,7 +605,7 @@ def scrape_jsports_official(page, rows):
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(700)
-            body = re.sub(r"\\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
+            body = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
             section_match = re.search(
                 r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", body
             )
