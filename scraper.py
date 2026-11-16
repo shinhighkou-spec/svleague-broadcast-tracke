@@ -2328,7 +2328,12 @@ def reconcile(rows):
 
     def source_priority(row):
         source = (row.source or "").casefold()
-        if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable", "gtv.e-business.ne.jp/timetable")):
+        # The current Gunma TV programme grid is the freshest direct listing.
+        # Prefer it over an archived/static timetable PDF when both identify the
+        # same station/date/match; keep J SPORTS guide and official PDFs next.
+        if "gtv.e-business.ne.jp/timetable" in source:
+            return 8
+        if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable")):
             return 7
         if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp", "tss-tv.co.jp")):
             return 6
