@@ -12,6 +12,9 @@ from scraper import (
     GUNMA_TV_URLS,
     extract_broadcast_item,
     reconcile,
+    parse_jsports_time,
+    parse_jsports_program_links,
+    parse_jsports_program_detail,
 )
 
 
@@ -221,3 +224,86 @@ def test_volleyballmagazine_tss_local_tv_listing_is_recognized():
         ("広島サンダーズ", "東京グレートベアーズ"), "13:00"
     ) in rows
     assert _volleyballmagazine_station("11/01（日）[生]13:00～15:00 TSS") == "テレビ新広島"
+
+
+def test_jsports_time_uses_the_period_marker_for_that_time_only():
+    assert parse_jsports_time("午前 8:00 午後 8:45") == "08:00"
+    assert parse_jsports_time("午後 0:45") == "12:45"
+    assert parse_jsports_time("深夜 0:45") == "00:45"
+
+
+def test_jsports_program_links_keep_match_date_and_ignore_other_programs():
+    home = "PFUブルーキャッツ石川かほく"
+    away = "埼玉上尾メディックス"
+    anchors = [
+        (
+            "〖GOLDEN LIVE〗大同生命SVリーグ 2026-27 女子 "
+            "PFUブルーキャッツ石川かほく vs. 埼玉上尾メディックス(11/21)",
+            "/program_guide/13/12/112023_2315379/",
+        ),
+        (
+            "〖GOLDEN LIVE〗大同生命SVリーグ 2026-27 女子 "
+            "PFUブルーキャッツ石川かほく vs. 埼玉上尾メディックス(11/22)",
+            "/program_guide/13/12/112024_2315293/",
+        ),
+        (
+            "SUPER GT 2026 ダイジェスト (11/22)",
+            "/program_guide/05/05/113028_2314661/",
+        ),
+    ]
+    links = parse_jsports_program_links(anchors, home, away)
+    assert [(item[1], item[3]) for item in links] == [
+        ("/program_guide/13/12/112023_2315379/", "2026-11-21"),
+        ("/program_guide/13/12/112024_2315293/", "2026-11-22"),
+    ]
+
+
+def test_jsports_program_detail_separates_airing_date_from_match_date():
+    detail = """
+    PFUブルーキャッツ石川かほく vs. 埼玉上尾メディックス(11/22)
+    開催日：2026年11月22日
+    放送日：2026年11月25日（水）
+    放送時間：午前 8時 00分～午前 11時 00分
+    """
+    assert parse_jsports_program_detail(detail) == (
+        "2026-11-25", "08:00", "2026-11-22", True
+    )
+
+
+def test_jsports_same_day_recorded_airing_is_marked_as_replay():
+    detail = """
+    同日 初回
+    PFUブルーキャッツ石川かほく vs. 埼玉上尾メディックス(11/22)
+    開催日：2026年11月22日
+    放送日：2026年11月22日（日）
+    放送時間：午後 8時 45分～午後 11時 45分
+    """
+    assert parse_jsports_program_detail(detail) == (
+        "2026-11-22", "20:45", "2026-11-22", True
+    )
+
+
+def test_known_wrong_jsports_channel_assignments_are_removed():
+    invalid = Broadcast(
+        "J SPORTS 1", "2026-11-21", "PFUブルーキャッツ石川かほく",
+        "埼玉上尾メディックス",
+        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261121/",
+        "12:45",
+    )
+    rows = reconcile([invalid])
+    assert not any(
+        row.station == "J SPORTS 1"
+        and row.broadcast_date == "2026-11-21"
+        and row.home == "PFUブルーキャッツ石川かほく"
+        and row.away == "埼玉上尾メディックス"
+        and row.broadcast_time == "12:45"
+        for row in rows
+    )
+    assert any(
+        row.station == "J SPORTS 2"
+        and row.broadcast_date == "2026-11-21"
+        and row.home == "PFUブルーキャッツ石川かほく"
+        and row.away == "埼玉上尾メディックス"
+        and row.broadcast_time == "12:45"
+        for row in rows
+    )
