@@ -427,16 +427,80 @@ def scrape_official(page, rows):
     if parsed_articles == 0:
         raise RuntimeError("No broadcast records could be safely parsed from official SV.LEAGUE news articles")
 def parse_jsports_time(text: str) -> str:
-    m = re.search(r"(?:午前|午後|深夜)\s*(\d{1,2}):(\d{2})", text)
+    m = re.search(r"(午前|午後|深夜)\s*(\d{1,2}):(\d{2})", text)
     if not m:
         return ""
-    hour = int(m.group(1))
-    minute = m.group(2)
-    if "午後" in text and hour < 12:
+    period, hour_text, minute = m.groups()
+    hour = int(hour_text)
+    if period == "午後" and hour < 12:
         hour += 12
-    if "深夜" in text and hour == 12:
+    if period == "深夜" and hour == 12:
         hour = 0
     return f"{hour:02d}:{minute}"
+
+
+def parse_jsports_program_links(anchors, home: str, away: str):
+    """Return TV programme-detail links for one exact SV match from a channel guide."""
+    out = []
+    seen = set()
+    for title, href in anchors:
+        title = re.sub(r"\\s+", " ", str(title or "")).strip()
+        if not href or "program_guide/" not in str(href):
+            continue
+        if "大同生命SVリーグ" not in title and "GOLDEN LIVE" not in title:
+            continue
+        if parse_match(title) != (home, away):
+            continue
+        date_match = re.search(r"[（(]\\s*(\\d{1,2})/(\\d{1,2})\\s*[）)]", title)
+        if not date_match:
+            continue
+        month, day = int(date_match.group(1)), int(date_match.group(2))
+        match_date = f"{2026 if month >= 9 else 2027:04d}-{month:02d}-{day:02d}"
+        if not valid_season_date(match_date):
+            continue
+        key = (str(href), match_date)
+        if key not in seen:
+            seen.add(key)
+            out.append((title, str(href), (home, away), match_date))
+    return out
+
+
+def parse_jsports_program_detail(text: str):
+    """Read actual airing date/time and original match date from a J SPORTS programme page."""
+    compact = re.sub(r"\\s+", " ", str(text or "")).strip()
+    airing_date = re.search(
+        r"放送日[：:]\\s*(\\d{4})年\\s*(\\d{1,2})月\\s*(\\d{1,2})日", compact
+    )
+    airing_time = re.search(
+        r"放送時間[：:]\\s*(午前|午後|深夜)\\s*(\\d{1,2})時\\s*(\\d{2})分", compact
+    )
+    match_date = re.search(
+        r"開催日[：:]\\s*(\\d{4})年\\s*(\\d{1,2})月\\s*(\\d{1,2})日", compact
+    )
+    if not (airing_date and airing_time and match_date):
+        return None
+    broadcast_date = (
+        f"{int(airing_date.group(1)):04d}-{int(airing_date.group(2)):02d}-"
+        f"{int(airing_date.group(3)):02d}"
+    )
+    original_match_date = (
+        f"{int(match_date.group(1)):04d}-{int(match_date.group(2)):02d}-"
+        f"{int(match_date.group(3)):02d}"
+    )
+    period, hour_text, minute = airing_time.groups()
+    hour = int(hour_text)
+    if period == "午後" and hour < 12:
+        hour += 12
+    if period == "深夜" and hour == 12:
+        hour = 0
+    broadcast_time = f"{hour:02d}:{minute}"
+    if not valid_season_date(broadcast_date) or not valid_season_date(original_match_date):
+        return None
+    is_replay = (
+        broadcast_date != original_match_date
+        or any(token in compact for token in ("同日", "録画", "再放送"))
+    )
+    return broadcast_date, broadcast_time, original_match_date, is_replay
 
 def parse_jsports_golden_live_tv(text: str):
     """Parse explicit J SPORTS Golden Live TV airings, including replay times.
@@ -522,10 +586,12 @@ def parse_jsports_official_section(section: str):
 
 
 def scrape_jsports_official(page, rows):
-    """Authoritative supplemental source for J SPORTS TV broadcasts.
-    J SPORTS official pages are checked independently of SV.LEAGUE. When a
-    match is published there first, it is eligible immediately. Channel names
-    are resolved from J SPORTS' own channel program guides (1-4)."""
+    """Collect J SPORTS TV airings from channel-specific programme detail pages.
+
+    The weekly guide can contain the same match on several channels and on
+    different dates. Never assign the first channel that merely mentions the
+    match: follow each TV programme link and read its explicit airing date/time.
+    """
     urls = (
         "https://www.jsports.co.jp/volleyball/",
         "https://www.jsports.co.jp/volleyball/svleague_men/",
@@ -537,35 +603,123 @@ def scrape_jsports_official(page, rows):
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=30000)
             page.wait_for_timeout(700)
-            text = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
-            m = re.search(r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", text)
-            section = m.group(1) if m else ""
+            body = re.sub(r"\\s+", " ", page.locator("body").inner_text(timeout=10000)).strip()
+            section_match = re.search(
+                r"放送予定(.*?)(?:番組表のアイコン|無料動画|新着記事|テーマ曲|$)", body
+            )
+            section = section_match.group(1) if section_match else ""
             if not section:
                 print("J SPORTS OFFICIAL SECTION MISSING:", url)
                 continue
-            for d, match, tm in parse_jsports_official_section(section):
-                candidates.append((d, match, tm, url))
+            for airing_date, match, airtime in parse_jsports_official_section(section):
+                candidates.append((airing_date, match, airtime, url))
         except Exception as e:
             print("J SPORTS OFFICIAL ERROR:", url, e)
+            flag_source_discovery_degraded(f"J SPORTS official schedule failed: {url}: {e}")
 
     unique = {}
-    for d, match, tm, source in candidates:
-        unique[(d, match[0], match[1])] = (tm, source)
+    for airing_date, match, airtime, source in candidates:
+        unique[(airing_date, match[0], match[1])] = (airtime, source)
 
-    for (d, home, away), (tm, source) in unique.items():
-        ymd = d.replace("-", "")[2:]
-        for ch, slug in ((1, "one"), (2, "two"), (3, "three"), (4, "four")):
-            url = f"https://www.jsports.co.jp/program_guide/channel/japanese/{slug}/{ymd}/"
-            try:
-                page.goto(url, wait_until="domcontentloaded", timeout=45000)
-                page.wait_for_timeout(350)
-                body = re.sub(r"\s+", " ", page.locator("body").inner_text(timeout=8000))
-                if home in body and away in body and f"({d[5:7]}/{d[8:10]})" in body:
-                    add(rows, f"J SPORTS {ch}", d, (home, away), url, tm)
-                    break
-            except Exception as e:
-                print("J SPORTS CHANNEL ERROR:", url, e)
+    channel_pages = {}
+    visited_details = set()
+    matched_candidates = set()
+    detail_checks = 0
+    added = 0
+
+    for (candidate_date, home, away), (candidate_time, source) in unique.items():
+        ymd = candidate_date.replace("-", "")[2:]
+        for channel, slug in ((1, "one"), (2, "two"), (3, "three"), (4, "four")):
+            page_key = (slug, ymd)
+            if page_key not in channel_pages:
+                channel_url = (
+                    f"https://www.jsports.co.jp/program_guide/channel/japanese/{slug}/{ymd}/"
+                )
+                try:
+                    page.goto(channel_url, wait_until="domcontentloaded", timeout=45000)
+                    page.wait_for_timeout(350)
+                    locator = page.locator("a")
+                    anchors = []
+                    for index in range(locator.count()):
+                        anchor = locator.nth(index)
+                        try:
+                            title = anchor.inner_text(timeout=1000)
+                            href = anchor.get_attribute("href")
+                        except Exception:
+                            continue
+                        if title and href:
+                            anchors.append((title, href))
+                    channel_pages[page_key] = (channel_url, anchors)
+                except Exception as e:
+                    print("J SPORTS CHANNEL ERROR:", channel_url, e)
+                    flag_source_discovery_degraded(
+                        f"J SPORTS channel guide failed: {channel_url}: {e}"
+                    )
+                    channel_pages[page_key] = None
+
+            cached = channel_pages[page_key]
+            if not cached:
+                continue
+            channel_url, anchors = cached
+            links = parse_jsports_program_links(anchors, home, away)
+            for title, href, match, title_match_date in links:
+                matched_candidates.add((candidate_date, home, away))
+                detail_url = urllib.parse.urljoin(channel_url, href)
+                visit_key = (channel, detail_url)
+                if visit_key in visited_details:
+                    continue
+                visited_details.add(visit_key)
+                try:
+                    page.goto(detail_url, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(250)
+                    detail_text = page.locator("body").inner_text(timeout=10000)
+                    parsed = parse_jsports_program_detail(detail_text)
+                    detail_checks += 1
+                    if not parsed:
+                        print("J SPORTS PROGRAM DETAIL NEEDS REVIEW:", detail_url)
+                        flag_source_discovery_degraded(
+                            f"J SPORTS programme detail missing airing date/time: {detail_url}"
+                        )
+                        continue
+                    broadcast_date, broadcast_time, original_match_date, is_replay = parsed
+                    if original_match_date != title_match_date:
+                        print(
+                            "J SPORTS PROGRAM DATE MISMATCH:", detail_url,
+                            "title=", title_match_date, "detail=", original_match_date
+                        )
+                        flag_source_discovery_degraded(
+                            f"J SPORTS programme match date mismatch: {detail_url}"
+                        )
+                        continue
+                    if home not in detail_text or away not in detail_text:
+                        print("J SPORTS PROGRAM TEAMS MISMATCH:", detail_url)
+                        flag_source_discovery_degraded(
+                            f"J SPORTS programme team mismatch: {detail_url}"
+                        )
+                        continue
+                    detail_source = f"{detail_url} | {channel_url}"
+                    if is_replay:
+                        detail_source += " | replay"
+                    add(
+                        rows, f"J SPORTS {channel}", broadcast_date, match,
+                        detail_source, broadcast_time
+                    )
+                    added += 1
+                except Exception as e:
+                    print("J SPORTS PROGRAM DETAIL ERROR:", detail_url, e)
+                    flag_source_discovery_degraded(
+                        f"J SPORTS programme detail failed: {detail_url}: {e}"
+                    )
+
+    for key in unique:
+        if key not in matched_candidates:
+            print("J SPORTS PROGRAM LINK NOT FOUND:", key[0], key[1], "vs", key[2])
+            flag_source_discovery_degraded(
+                f"J SPORTS channel guide has no matching programme link: {key[0]} {key[1]} vs {key[2]}"
+            )
     print("J SPORTS OFFICIAL CANDIDATES:", len(unique))
+    print("J SPORTS PROGRAM DETAILS CHECKED:", detail_checks)
+    print("J SPORTS PROGRAM DETAILS ADDED:", added)
 
 def scrape_jcom(page, rows):
     """Read J:COM's full schedule text; preserve airing dates and programme times."""
@@ -2331,6 +2485,8 @@ def reconcile(rows):
         # The current Gunma TV programme grid is the freshest direct listing.
         # Prefer it over an archived/static timetable PDF when both identify the
         # same station/date/match; keep J SPORTS guide and official PDFs next.
+        if "jsports.co.jp/program_guide/" in source:
+            return 8
         if "gtv.e-business.ne.jp/timetable" in source:
             return 8
         if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable")):
@@ -2357,6 +2513,18 @@ def reconcile(rows):
                   raw_row.home, "vs", raw_row.away)
             return
         row = normalize_time_semantics(raw_row)
+        invalid_jsports_airings = {
+            ("J SPORTS 1", "2026-11-21", "PFUブルーキャッツ石川かほく",
+             "埼玉上尾メディックス", "12:45"),
+            ("J SPORTS 1", "2026-11-22", "PFUブルーキャッツ石川かほく",
+             "埼玉上尾メディックス", "20:45"),
+        }
+        invalid_key = (
+            row.station, row.broadcast_date, row.home, row.away, row.broadcast_time or ""
+        )
+        if invalid_key in invalid_jsports_airings:
+            print("KNOWN INVALID J SPORTS CHANNEL/TIME ATTRIBUTION REMOVED:", invalid_key)
+            return
         key4 = identity(row)
         if key4 in banned:
             return
