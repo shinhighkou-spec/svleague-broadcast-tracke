@@ -165,11 +165,20 @@ def test_current_gunma_tv_timetable_has_direct_broadcaster_priority():
         "群馬テレビ", "2026-11-21", "群馬グリーンウイングス",
         "アリーザ愛知", "previously-confirmed-user-shared-tv-listing", "12:55"
     )
+    official_pdf = Broadcast(
+        "群馬テレビ", "2026-11-21", "群馬グリーンウイングス",
+        "アリーザ愛知",
+        "https://www.gtv.co.jp/timetable/pdf/10986b1f5f36b27b1e4a2944d6f7484a.pdf",
+        "13:00",
+    )
     current_timetable = Broadcast(
         "群馬テレビ", "2026-11-21", "群馬グリーンウイングス",
         "アリーザ愛知", "https://gtv.e-business.ne.jp/timetable/", "13:00"
     )
-    rows = reconcile([user_shared, current_timetable])
+    # Simulate the production data: an official PDF row already exists, plus
+    # a lower-priority legacy entry. The current official grid must win source
+    # attribution without duplicating the broadcast or changing its time.
+    rows = reconcile([official_pdf, user_shared, current_timetable])
     matching = [row for row in rows if (
         row.station, row.broadcast_date, row.home, row.away
     ) == ("群馬テレビ", "2026-11-21", "群馬グリーンウイングス", "アリーザ愛知")]
