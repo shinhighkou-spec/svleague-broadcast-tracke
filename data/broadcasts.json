@@ -423,6 +423,24 @@
     "match_start_time": "13:05"
   },
   {
+    "station": "サガテレビ",
+    "broadcast_date": "2026-11-21",
+    "home": "SAGA久光スプリングス",
+    "away": "アランマーレ秋田庄内",
+    "source": "https://volleyballmagazine.jp/703335/",
+    "broadcast_time": "14:00",
+    "match_start_time": ""
+  },
+  {
+    "station": "鹿児島テレビ",
+    "broadcast_date": "2026-11-21",
+    "home": "フラーゴラッド鹿児島",
+    "away": "ウルフドッグス名古屋",
+    "source": "https://volleyballmagazine.jp/703335/",
+    "broadcast_time": "14:25",
+    "match_start_time": ""
+  },
+  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-21",
     "home": "PFUブルーキャッツ石川かほく",
