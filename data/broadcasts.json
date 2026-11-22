@@ -1017,15 +1017,6 @@
     "match_start_time": "13:05"
   },
   {
-    "station": "J SPORTS 2",
-    "broadcast_date": "2026-12-26",
-    "home": "大阪マーヴェラス",
-    "away": "アリーザ愛知",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
-    "broadcast_time": "",
-    "match_start_time": "13:05"
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-12-26",
     "home": "東京グレートベアーズ",
@@ -1033,6 +1024,15 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-12-26",
+    "home": "大阪マーヴェラス",
+    "away": "アリーザ愛知",
+    "source": "https://www.jsports.co.jp/program_guide/13/12/112081_2315760/ | https://www.jsports.co.jp/program_guide/channel/japanese/two/261226/ | replay",
+    "broadcast_time": "19:00",
+    "match_start_time": "13:05"
   },
   {
     "station": "GAORA SPORTS",
@@ -1044,15 +1044,6 @@
     "match_start_time": "13:05"
   },
   {
-    "station": "J SPORTS 4",
-    "broadcast_date": "2026-12-27",
-    "home": "大阪マーヴェラス",
-    "away": "アリーザ愛知",
-    "source": "https://www.svleague.jp/news/detail/100609?grade=sv",
-    "broadcast_time": "",
-    "match_start_time": "13:05"
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-12-27",
     "home": "東京グレートベアーズ",
@@ -1060,6 +1051,42 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "14:05"
+  },
+  {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-12-27",
+    "home": "大阪マーヴェラス",
+    "away": "アリーザ愛知",
+    "source": "https://www.jsports.co.jp/program_guide/13/12/112084_4285569/ | https://www.jsports.co.jp/program_guide/channel/japanese/four/261226/ | replay",
+    "broadcast_time": "18:15",
+    "match_start_time": "13:05"
+  },
+  {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-12-29",
+    "home": "大阪マーヴェラス",
+    "away": "アリーザ愛知",
+    "source": "https://www.jsports.co.jp/program_guide/13/12/112081_4285589/ | https://www.jsports.co.jp/program_guide/channel/japanese/four/261226/ | replay",
+    "broadcast_time": "05:30",
+    "match_start_time": ""
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-12-30",
+    "home": "大阪マーヴェラス",
+    "away": "アリーザ愛知",
+    "source": "https://www.jsports.co.jp/program_guide/13/12/112084_2315803/ | https://www.jsports.co.jp/program_guide/channel/japanese/two/261226/ | replay",
+    "broadcast_time": "01:00",
+    "match_start_time": ""
+  },
+  {
+    "station": "J SPORTS 2",
+    "broadcast_date": "2026-12-30",
+    "home": "大阪マーヴェラス",
+    "away": "アリーザ愛知",
+    "source": "https://www.jsports.co.jp/program_guide/13/12/112081_2315802/ | https://www.jsports.co.jp/program_guide/channel/japanese/two/261226/ | replay",
+    "broadcast_time": "22:00",
+    "match_start_time": ""
   },
   {
     "station": "GAORA SPORTS",
