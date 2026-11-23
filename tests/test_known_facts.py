@@ -663,7 +663,7 @@ def test_reconcile_removes_unverified_legacy_j_sports_channel_assignments():
         ("J SPORTS 2", "2026-12-20", *match_dec19, "21:00"),
     ]
     assert set(valid) <= keys
-    assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "") in keys
+    assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "13:45") in keys
 
 
 def test_reconcile_preserves_new_program_detail_for_previously_invalid_jsports_key():
