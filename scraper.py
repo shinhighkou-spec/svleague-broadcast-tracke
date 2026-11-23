@@ -233,12 +233,12 @@ def extract_broadcast_item(text: str, station_hint: str | None = None):
     return stations[0], d, match, tm
 
 def parse_jcom_schedule_text(text: str):
-    """Parse J:COM's full page text using its broadcast-date / match-date pairs.
+    """Parse J:COM cards while validating airing-date/match-date order.
 
-    Each programme card contains two ISO dates in order: the actual airing date,
-    then the original match date. TV channels have an explicit J SPORTS HD label
-    followed by a programme time range. Match-start clocks are read only from
-    the match-details portion before the channel listings.
+    Cards may be preceded by an extra page/filter date. Scan adjacent date pairs
+    and accept only a pair whose match date appears before the channel/time block.
+    A dated card must contain two known teams, an HD TV channel and a time range;
+    on-demand-only labels are not accepted.
     """
     body = re.sub(r"\r", "", str(text or ""))
     date_matches = list(re.finditer(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", body))
@@ -262,21 +262,31 @@ def parse_jcom_schedule_text(text: str):
         segment = body[first_date.start():segment_end]
         match = parse_match(segment)
         if not match:
-            i += 2
+            i += 1
             continue
 
+        # J:COM renders the channel name and recording/live label in different
+        # orders. The HD channel itself distinguishes TV from J SPORTS on-demand.
         channel_matches = list(re.finditer(
-            r"(?:録画|再放送|生中継|生)\s*(J SPORTS [1-4]|GAORA SPORTS)\s*HD",
+            r"(J SPORTS [1-4]|GAORA SPORTS)\s*HD",
             segment,
             re.I,
         ))
         if not channel_matches:
-            i += 2
+            i += 1
+            continue
+
+        # A shifted pair (match date, next card's airing date) puts the second
+        # date after the channel/time block. Reject it rather than misdating it.
+        first_channel_start = channel_matches[0].start()
+        if second_date.end() - first_date.start() >= first_channel_start:
+            i += 1
             continue
 
         second_date_end = second_date.end() - first_date.start()
-        match_start_segment = segment[second_date_end:channel_matches[0].start()]
+        match_start_segment = segment[second_date_end:first_channel_start]
         match_start_time = parse_time(match_start_segment)
+        parsed_any = False
 
         for index, channel_match in enumerate(channel_matches):
             channel_end = (
@@ -300,10 +310,23 @@ def parse_jcom_schedule_text(text: str):
             if key in seen:
                 continue
             seen.add(key)
-            is_replay = bool(re.match(r"(?:録画|再放送)", channel_match.group(0)))
-            results.append((station, broadcast_date, match, broadcast_time, match_start_time, is_replay))
 
-        i += 2
+            marker_start = max(0, channel_match.start() - 40)
+            marker_end = min(len(segment), channel_match.end() + 40)
+            nearby_markers = list(re.finditer(r"録画|再放送|生中継|生", segment[marker_start:marker_end]))
+            if nearby_markers:
+                nearest = min(
+                    nearby_markers,
+                    key=lambda marker: abs(marker_start + marker.start() - channel_match.start()),
+                )
+                is_replay = nearest.group(0) in ("録画", "再放送")
+            else:
+                is_replay = False
+            results.append((station, broadcast_date, match, broadcast_time, match_start_time, is_replay))
+            parsed_any = True
+
+        # Slide one date on failed/stray pairs; advance two only after a full card.
+        i += 2 if parsed_any else 1
 
     return results
 
@@ -413,6 +436,161 @@ def scrape_official_article(page, rows, url):
                     add(rows, parsed_station, d, match, url, "", tm)
         except Exception as e:
             print("OFFICIAL TABLE ERROR:", url, e)
+
+def _parse_svleague_match_aliases(text):
+    """Parse the two teams from abbreviated names used on official match pages."""
+    alias_map = dict(TEAM_MAP)
+    alias_map.update(VOLLEYBALLMAGAZINE_TEAM_ALIASES)
+    normalized = re.sub(r"\s+", "", str(text or ""))
+    found = []
+    for alias in sorted(alias_map, key=len, reverse=True):
+        for match in re.finditer(re.escape(alias), normalized):
+            found.append((match.start(), match.end(), alias))
+    found.sort(key=lambda item: (item[0], -(item[1] - item[0])))
+    chosen = []
+    last_end = -1
+    for start, end, alias in found:
+        if start < last_end:
+            continue
+        chosen.append(alias)
+        last_end = end
+    teams = []
+    for alias in chosen:
+        canonical = alias_map[alias]
+        if canonical not in teams:
+            teams.append(canonical)
+    return tuple(teams) if len(teams) == 2 else None
+
+
+def parse_svleague_match_detail_html(html):
+    """Extract explicit TV stations from the official match page's 放送・配信 section.
+
+    The date/time above that section are fixture date and match-start time. The
+    official page does not state an airing clock, so callers must leave the
+    broadcast_time empty rather than copying the match-start time.
+    """
+    raw = str(html or "")
+    body_soup = BeautifulSoup(raw, "html.parser")
+    body_text = body_soup.get_text(" ", strip=True)
+    marker_end = raw.find("直近の試合結果")
+    marker_start = raw.rfind("放送・配信", 0, marker_end) if marker_end >= 0 else -1
+    if marker_start < 0 or marker_end < 0:
+        return None
+
+    body_end = body_text.find("直近の試合結果")
+    heading_position = body_text.rfind("放送・配信", 0, body_end) if body_end >= 0 else -1
+    if heading_position < 0:
+        return None
+    match_text = body_text[:heading_position]
+    broadcast_date = parse_date(match_text)
+    match = _parse_svleague_match_aliases(match_text)
+    match_start_time = parse_time(match_text)
+    if not broadcast_date or not valid_season_date(broadcast_date) or not match:
+        return None
+
+    section_soup = BeautifulSoup(raw[marker_start:marker_end], "html.parser")
+    section_text = section_soup.get_text(" ", strip=True)
+    section_text += " " + " ".join(
+        image.get("alt", "") for image in section_soup.find_all("img")
+        if image.get("alt")
+    )
+    stations = []
+    for name in sorted(VALID_STATIONS, key=len, reverse=True):
+        if name not in section_text:
+            continue
+        station = clean_station(name)
+        if any(station == existing or station in existing or existing in station for existing in stations):
+            continue
+        stations.append(station)
+    return broadcast_date, match, match_start_time, stations
+
+
+def scrape_svleague_match_details(page, rows):
+    """Cross-check upcoming fixtures against first-party SV.LEAGUE match-detail pages."""
+    homepage = "https://www.svleague.jp/"
+    response = page.request.get(homepage, timeout=30000)
+    if response.status != 200:
+        raise RuntimeError(f"SV.LEAGUE homepage returned HTTP {response.status}")
+    soup = BeautifulSoup(response.text(), "html.parser")
+    urls = []
+    for anchor in soup.select('a[href*="/match/detail/"]'):
+        href = (anchor.get("href") or "").strip()
+        if not href:
+            continue
+        absolute = urllib.parse.urljoin(homepage, href).split("#")[0].split("?")[0]
+        if re.search(r"/match/detail/\d+/?$", absolute) and absolute not in urls:
+            urls.append(absolute)
+    print("SV.LEAGUE MATCH DETAIL URLS DISCOVERED:", len(urls))
+    if not urls:
+        raise RuntimeError("SV.LEAGUE homepage returned no match-detail URLs")
+    if len(urls) > 100:
+        flag_source_discovery_degraded(
+            f"SV.LEAGUE homepage exposed {len(urls)} match pages; only the first 100 were checked"
+        )
+        urls = urls[:100]
+
+    existing_records = list(rows) + load_previous() + known_facts()
+    fetched = failed = no_tv = confirmed = added = 0
+    for url in urls:
+        try:
+            detail_response = page.request.get(url, timeout=20000)
+            if detail_response.status != 200:
+                failed += 1
+                print("SV.LEAGUE MATCH DETAIL HTTP ERROR:", url, detail_response.status)
+                continue
+            parsed = parse_svleague_match_detail_html(detail_response.text())
+            if parsed is None:
+                failed += 1
+                print("SV.LEAGUE MATCH DETAIL NEEDS REVIEW:", url)
+                continue
+            fetched += 1
+            broadcast_date, match, match_start_time, stations = parsed
+            if not stations:
+                no_tv += 1
+                continue
+            for station in stations:
+                identity = (station, broadcast_date, match[0], match[1])
+                if any(
+                    (record.station, record.broadcast_date, record.home, record.away) == identity
+                    for record in existing_records
+                ):
+                    confirmed += 1
+                    print(
+                        "SV.LEAGUE MATCH DETAIL CONFIRMS EXISTING ROW:",
+                        station, broadcast_date, match[0], "vs", match[1],
+                    )
+                    continue
+                source = (
+                    f"{url} | official match detail; match date only; "
+                    "broadcast time not stated"
+                )
+                record = Broadcast(
+                    station, broadcast_date, match[0], match[1],
+                    source, "", match_start_time,
+                )
+                add(rows, station, broadcast_date, match, source, "", match_start_time)
+                existing_records.append(record)
+                added += 1
+                print(
+                    "SV.LEAGUE MATCH DETAIL ACCEPTED:",
+                    station, broadcast_date, "broadcast time not stated",
+                    "match start", match_start_time or "unknown",
+                    match[0], "vs", match[1], "|", url,
+                )
+        except Exception as e:
+            failed += 1
+            print("SV.LEAGUE MATCH DETAIL ERROR:", url, e)
+
+    print(
+        "SV.LEAGUE MATCH DETAIL SUMMARY:",
+        "fetched", fetched, "no_tv", no_tv, "confirmed", confirmed,
+        "added", added, "failed", failed,
+    )
+    if failed:
+        flag_source_discovery_degraded(
+            f"SV.LEAGUE match-detail source had {failed} unverified pages out of {len(urls)}"
+        )
+
 
 def scrape_official(page, rows):
     urls = official_article_urls(page)
@@ -739,7 +917,7 @@ def scrape_jcom(page, rows):
             r"""() => {
                 const text = document.body?.innerText || "";
                 return /20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}/.test(text)
-                    && /(?:録画|再放送|生中継|生)\s*(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD/i.test(text)
+                    && /(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD/i.test(text)
                     && /\d{1,2}:\d{2}\s*[〜～~–—-]\s*\d{1,2}:\d{2}/.test(text);
             }""",
             timeout=15000,
@@ -763,19 +941,21 @@ def scrape_jcom(page, rows):
     print("J:COM FULL-PAGE AIRINGS PARSED:", len(items))
     if not items:
         date_count = len(re.findall(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", body))
-        tv_label_count = len(re.findall(
-            r"(?:録画|再放送|生中継|生)\s*(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD",
-            body,
-            re.I,
+        tv_channel_count = len(re.findall(
+            r"(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD", body, re.I
         ))
+        type_label_count = len(re.findall(r"録画|再放送|生中継", body))
         time_range_count = len(re.findall(
             r"\d{1,2}:\d{2}\s*[〜～~–—-]\s*\d{1,2}:\d{2}",
             body,
         ))
+        sample_pos = body.find("J SPORTS")
+        sample = body[max(0, sample_pos - 100):sample_pos + 320] if sample_pos >= 0 else body[:320]
         raise RuntimeError(
             "J:COM page loaded but no complete dated TV programme slots were parsed "
-            f"(date_labels={date_count}, tv_labels={tv_label_count}, "
-            f"time_ranges={time_range_count}, body_chars={len(body)})"
+            f"(date_labels={date_count}, tv_channels={tv_channel_count}, "
+            f"type_labels={type_label_count}, time_ranges={time_range_count}, "
+            f"body_chars={len(body)}); sample={sample!r}"
         )
 
 
@@ -3010,7 +3190,8 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
 .station-channel{font-size:9px;font-weight:900;letter-spacing:.02em;color:#c9d4db;margin-left:-3px;white-space:nowrap}
 .station-lockup{display:flex;align-items:center;gap:5px;min-width:0}
 .station-name{font-weight:800;white-space:nowrap}
-.time{font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
+.time{display:flex;flex-direction:column;align-items:flex-start;gap:3px;font-size:19px;font-weight:900;letter-spacing:.02em;color:#fff}
+.match-start-time{font-size:10px;line-height:1.2;color:var(--muted);font-weight:700;letter-spacing:0}
 .team-wrap{display:flex;align-items:center;gap:9px;min-width:0}
 .team-logo{width:44px;height:44px;object-fit:contain;flex:0 0 44px;display:block;filter:none;background:transparent}
 .team{font-weight:800;line-height:1.35}
@@ -3031,7 +3212,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Noto San
  .broadcast-row>div:nth-child(1){grid-column:1}.broadcast-row>div:nth-child(2){grid-column:2}
  .broadcast-row>div:nth-child(3){grid-column:1/3}.broadcast-row>div:nth-child(4){grid-column:1/3}.broadcast-row>div:nth-child(5){position:absolute;right:13px;top:13px}
  .broadcast-row{position:relative;padding-right:48px}
- .station-name{display:none}.station-logo{width:58px}.time{font-size:18px}
+ .station-name{display:none}.station-logo{width:58px}.time{font-size:18px}.match-start-time{font-size:10px}
  .team-logo{width:40px;height:40px;flex-basis:40px}.team{font-size:12px}
 }
 </style>
@@ -3139,10 +3320,15 @@ dateFilter.addEventListener('change',apply);loadReservations();apply();
             alogo = team_logos.get(r.away, "")
             hlogo_html = f'<img class="team-logo" src="{esc(hlogo)}" alt="" loading="lazy">' if hlogo else ''
             alogo_html = f'<img class="team-logo" src="{esc(alogo)}" alt="" loading="lazy">' if alogo else ''
+            broadcast_time_html = esc(r.broadcast_time or "未公表")
+            match_start_html = (
+                f'<span class="match-start-time">試合開始 {esc(r.match_start_time)}</span>'
+                if r.match_start_time else ""
+            )
             body.append(
                 f'<div class="broadcast-row" data-station="{esc(r.station)}" data-date="{d}">'
                 f'<div class="station">{station_logo(r.station)}<span class="station-name">{esc(r.station)}</span></div>'
-                f'<div class="time">{esc(r.broadcast_time or "—")}</div>'
+                f'<div class="time"><span class="air-time">{broadcast_time_html}</span>{match_start_html}</div>'
                 f'<div class="home"><span class="team-wrap">{hlogo_html}<span class="team {hcls}">{esc(r.home)}</span></span></div>'
                 f'<div class="away"><span class="team-wrap">{alogo_html}<span class="team {acls}">{esc(r.away)}</span></span></div>'
                 f'<div class="record-cell"><input class="record-check" type="checkbox" aria-label="録画予約"></div>'
@@ -3173,6 +3359,11 @@ def main():
         except Exception as e:
             print("OFFICIAL ERROR:", e)
             flag_source_discovery_degraded(f"SV.LEAGUE official source failed: {e}")
+        try:
+            scrape_svleague_match_details(page, rows)
+        except Exception as e:
+            print("SV.LEAGUE MATCH DETAIL ERROR:", e)
+            flag_source_discovery_degraded(f"SV.LEAGUE match-detail source failed: {e}")
         try:
             scrape_gaora(page, rows)
         except Exception as e:

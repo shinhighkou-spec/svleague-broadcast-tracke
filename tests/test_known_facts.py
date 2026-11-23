@@ -1,7 +1,8 @@
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parents[1]))
-from scraper import known_facts, reconcile, validate
+import scraper
+from scraper import known_facts, reconcile, validate, parse_svleague_match_detail_html, Broadcast
 
 def test_known_official_facts_present():
     rows = reconcile([])
@@ -297,8 +298,9 @@ def test_public_schedule_never_displays_match_start_as_broadcast_start(monkeypat
                   "ジェイテクトSTINGS愛知", "test-source", "", "14:35")
     ], {})
     html = (site_dir / "index.html").read_text(encoding="utf-8")
-    assert '<div class="time">—</div>' in html
-    assert '<div class="time">14:35</div>' not in html
+    assert '<span class="air-time">未公表</span>' in html
+    assert '<span class="air-time">14:35</span>' not in html
+    assert '<span class="match-start-time">試合開始 14:35</span>' in html
 
 
 def test_duckduckgo_result_parser_resolves_redirect_and_keeps_snippet():
@@ -485,3 +487,77 @@ def test_tss_official_live_broadcast_is_preserved_with_separate_airtime_and_matc
     assert row.match_start_time == "13:05"
     assert "tss-tv.co.jp" in row.source
     assert "volleyballmagazine.jp/703335/" in row.source
+
+
+
+def test_svleague_match_detail_reads_explicit_tv_station_and_keeps_match_start_separate():
+    html = """
+    <main>
+      <nav><a href="/broadcast/">放送・配信</a></nav>
+      <h2>WOMEN Regular Season第7節 / GAME1</h2>
+      <div>岡山 HOME</div>
+      <div>2026.11.28 (土)</div>
+      <div>13:05</div>
+      <div>SAGA久光 AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li><img src="/station.png" alt="テレビせとうち"></li></ul>
+      <h3>直近の試合結果</h3>
+      <div>NEC川崎 3-0</div>
+    </main>
+    """
+    parsed = parse_svleague_match_detail_html(html)
+    assert parsed == (
+        "2026-11-28",
+        ("岡山シーガルズ", "SAGA久光スプリングス"),
+        "13:05",
+        ["テレビせとうち"],
+    )
+
+
+def test_svleague_match_detail_does_not_treat_on_demand_as_a_tv_station():
+    html = """
+    <main>
+      <div>MEN Regular Season第7節 / GAME1</div>
+      <div>日鉄堺BZ HOME</div>
+      <div>2026.11.28 (土)</div>
+      <div>18:35</div>
+      <div>東京GB AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li>J SPORTSオンデマンド</li></ul>
+      <h3>直近の試合結果</h3>
+    </main>
+    """
+    parsed = parse_svleague_match_detail_html(html)
+    assert parsed == (
+        "2026-11-28",
+        ("日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+        "18:35",
+        [],
+    )
+
+
+def test_site_shows_broadcast_and_match_start_times_as_separate_labels(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    site_dir = tmp_path / "site"
+    data_dir.mkdir()
+    site_dir.mkdir()
+    monkeypatch.setattr(scraper, "DATA", data_dir)
+    monkeypatch.setattr(scraper, "SITE", site_dir)
+    rows = [
+        Broadcast(
+            "テレビせとうち", "2026-11-28", "岡山シーガルズ",
+            "SAGA久光スプリングス", "https://www.svleague.jp/match/detail/37524/ | match date only",
+            "", "13:05",
+        ),
+        Broadcast(
+            "J SPORTS 1", "2026-11-28", "NECレッドロケッツ川崎",
+            "PFUブルーキャッツ石川かほく", "https://www.jsports.co.jp/program_guide/",
+            "10:00", "14:05",
+        ),
+    ]
+    scraper.write_outputs(rows)
+    html = (site_dir / "index.html").read_text(encoding="utf-8")
+    assert "未公表" in html
+    assert "10:00" in html
+    assert html.count("試合開始 13:05") == 1
+    assert html.count("試合開始 14:05") == 1
