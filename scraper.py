@@ -981,10 +981,124 @@ def scrape_jcom(page, rows):
         )
 
 
+def parse_gaora_program_schedule_row(text: str):
+    """Parse every dated TV airing in one official GAORA programme-table row.
+
+    The title's (M.DD) date is the original match date. Each explicit
+    Japanese month/day + time range is an actual GAORA TV airing. Later
+    slots in the same programme row are replays. 24:00-27:00 style starts
+    are normalized to the following calendar day.
+    """
+    compact = re.sub(r"\\s+", " ", str(text or "")).strip()
+    match = parse_match(compact)
+    match_date_match = re.search(r"[（(](\\d{1,2})\\.(\\d{1,2})[^）)]*[）)]", compact)
+    if not match or not match_date_match:
+        return []
+
+    match_month, match_day = map(int, match_date_match.groups())
+    match_year = 2026 if match_month >= 9 else 2027
+    try:
+        match_date = date(match_year, match_month, match_day).isoformat()
+    except ValueError:
+        return []
+    if not valid_season_date(match_date):
+        return []
+
+    slot_pattern = re.compile(
+        r"(?<!\\d)(?P<month>\\d{1,2})月(?P<day>\\d{1,2})日"
+        r"(?:[（(][^）)]*[）)])?\\s*"
+        r"(?P<start_hour>\\d{1,2}):(?P<start_minute>\\d{2})"
+        r"\\s*[～〜~–—-]\\s*"
+        r"(?P<end_hour>\\d{1,2}):(?P<end_minute>\\d{2})(?!\\d)"
+    )
+    results = []
+    for index, slot in enumerate(slot_pattern.finditer(compact)):
+        month = int(slot.group("month"))
+        day_value = int(slot.group("day"))
+        start_hour = int(slot.group("start_hour"))
+        start_minute = int(slot.group("start_minute"))
+        end_hour = int(slot.group("end_hour"))
+        end_minute = int(slot.group("end_minute"))
+        if (
+            start_hour > 47 or end_hour > 47
+            or start_minute > 59 or end_minute > 59
+        ):
+            continue
+        year = 2026 if month >= 9 else 2027
+        try:
+            airing_date = date(year, month, day_value)
+            airing_date += timedelta(days=start_hour // 24)
+        except ValueError:
+            continue
+        if not valid_season_date(airing_date.isoformat()):
+            continue
+        broadcast_time = f"{start_hour % 24:02d}:{start_minute:02d}"
+        results.append((
+            airing_date.isoformat(),
+            match,
+            broadcast_time,
+            match_date,
+            index > 0,
+        ))
+    return results
+
+
 def scrape_gaora(page, rows):
     # GAORA pages are supplemental. They can never overwrite official facts.
     page.goto(GAORA, wait_until="networkidle", timeout=60000)
     page.wait_for_timeout(1200)
+
+    # The official programme table lists the original match date in its title
+    # and one or more actual TV airing date/time ranges in the schedule column.
+    # Parse each table row so replays are not lost behind the first airing.
+    table_airings = 0
+    try:
+        gaora_soup = BeautifulSoup(page.content(), "html.parser")
+        schedule_rows = [
+            tr.get_text(" ", strip=True)
+            for tr in gaora_soup.select("table tr")
+        ]
+        match_start_facts = known_facts()
+        for row_text in schedule_rows:
+            for broadcast_date, match, broadcast_time, match_date, is_replay in (
+                parse_gaora_program_schedule_row(row_text)
+            ):
+                match_start_time = next(
+                    (
+                        fact.match_start_time or fact.broadcast_time
+                        for fact in match_start_facts
+                        if fact.station == "GAORA SPORTS"
+                        and fact.broadcast_date == match_date
+                        and fact.home == match[0]
+                        and fact.away == match[1]
+                    ),
+                    "",
+                )
+                source = f"{GAORA} | match-date={match_date}"
+                if is_replay:
+                    source += " | replay"
+                add(
+                    rows, "GAORA SPORTS", broadcast_date, match, source,
+                    broadcast_time, match_start_time,
+                )
+                table_airings += 1
+                print(
+                    "GAORA OFFICIAL TABLE ACCEPTED:",
+                    broadcast_date, broadcast_time,
+                    "match date", match_date,
+                    "replay" if is_replay else "first airing",
+                    match[0], "vs", match[1],
+                )
+        print("GAORA OFFICIAL PROGRAM TABLE AIRINGS PARSED:", table_airings)
+        if not table_airings:
+            flag_source_discovery_degraded(
+                "GAORA official programme table loaded but no dated SV TV airing rows were parsed"
+            )
+    except Exception as e:
+        print("GAORA OFFICIAL PROGRAM TABLE ERROR:", e)
+        flag_source_discovery_degraded(
+            f"GAORA official programme table could not be parsed: {e}"
+        )
 
     cards = page.locator("text=ガオバレ！SVリーグ 2026-27")
     for i in range(cards.count()):
