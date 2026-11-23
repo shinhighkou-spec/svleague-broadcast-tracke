@@ -554,3 +554,61 @@ def test_volleyballking_http_fallback_preserves_structured_schedule_lines():
             "13:05",
         )
     ]
+
+
+def test_volleyballking_kts_game2_maps_to_kagoshima_tv_and_preserves_airtime():
+    article = """2026.11.19 18:15
+◾︎SVリーグ男子第5節 試合日程・放送情報・配信情報
+フラーゴラッド鹿児島 vs ウルフドッグス名古屋
+▼日時
+GAME1：11月20日（金）18時35分～
+GAME2：11月21日（土）14時35分～
+▼会場
+Fアリーナいちき串木野
+▼放送
+GAME1：なし
+GAME2：KTS鹿児島
+▼配信
+J SPORTSオンデマンド
+"""
+    items = scraper._extract_volleyballking_schedule_blocks(article)
+    assert items == [
+        (
+            "鹿児島テレビ",
+            "2026-11-21",
+            ("フラーゴラッド鹿児島", "ウルフドッグス名古屋"),
+            "",
+            "14:35",
+        )
+    ]
+    assert scraper.clean_station("KTS鹿児島テレビ") == "鹿児島テレビ"
+    assert scraper.source_priority("https://www.kts-tv.co.jp/news/29478") == 6
+
+    existing_airtime = Broadcast(
+        "鹿児島テレビ",
+        "2026-11-21",
+        "フラーゴラッド鹿児島",
+        "ウルフドッグス名古屋",
+        "https://volleyballmagazine.jp/703335/",
+        "14:25",
+        "",
+    )
+    station_confirmation = Broadcast(
+        "鹿児島テレビ",
+        items[0][1],
+        items[0][2][0],
+        items[0][2][1],
+        "https://volleyballking.jp/article/97207/",
+        items[0][3],
+        items[0][4],
+    )
+    merged = scraper.reconcile([existing_airtime, station_confirmation])
+    row = next(
+        r for r in merged
+        if r.station == "鹿児島テレビ"
+        and r.broadcast_date == "2026-11-21"
+        and r.home == "フラーゴラッド鹿児島"
+        and r.away == "ウルフドッグス名古屋"
+    )
+    assert row.broadcast_time == "14:25"
+    assert row.match_start_time == "14:35"
