@@ -2914,8 +2914,10 @@ def reconcile(rows):
             return
         row = normalize_time_semantics(raw_row)
         invalid_jsports_airings = {
-            # J SPORTS' channel-specific guide places the Nov 7 and Nov 8
-            # GOLDEN LIVE broadcasts on J SPORTS 2, not J SPORTS 1.
+            # J SPORTS' channel-specific guide places these GOLDEN LIVE
+            # broadcasts on J SPORTS 2, not J SPORTS 1.
+            ("J SPORTS 1", "2026-11-01", "フラーゴラッド鹿児島",
+             "北海道イエロースターズ", "12:45"),
             ("J SPORTS 1", "2026-11-07", "ウルフドッグス名古屋",
              "ジェイテクトSTINGS愛知", "21:00"),
             ("J SPORTS 1", "2026-11-08", "ウルフドッグス名古屋",
