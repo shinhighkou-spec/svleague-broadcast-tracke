@@ -171,24 +171,6 @@
     "match_start_time": "12:05"
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-10-31",
-    "home": "フラーゴラッド鹿児島",
-    "away": "北海道イエロースターズ",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261031/",
-    "broadcast_time": "13:45",
-    "match_start_time": ""
-  },
-  {
-    "station": "J SPORTS 4",
-    "broadcast_date": "2026-10-31",
-    "home": "フラーゴラッド鹿児島",
-    "away": "北海道イエロースターズ",
-    "source": "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
-    "broadcast_time": "13:45",
-    "match_start_time": "14:05"
-  },
-  {
     "station": "南日本放送",
     "broadcast_date": "2026-10-31",
     "home": "フラーゴラッド鹿児島",
@@ -207,13 +189,13 @@
     "match_start_time": ""
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-11-01",
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-10-31",
     "home": "フラーゴラッド鹿児島",
     "away": "北海道イエロースターズ",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261101/",
-    "broadcast_time": "12:45",
-    "match_start_time": ""
+    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
+    "broadcast_time": "",
+    "match_start_time": "14:05"
   },
   {
     "station": "J SPORTS 2",
@@ -288,15 +270,6 @@
     "match_start_time": "14:35"
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-11-07",
-    "home": "ウルフドッグス名古屋",
-    "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/",
-    "broadcast_time": "21:00",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-11-07",
     "home": "ウルフドッグス名古屋",
@@ -313,15 +286,6 @@
     "source": "https://volleyballmagazine.jp/703335/",
     "broadcast_time": "12:55",
     "match_start_time": "13:05"
-  },
-  {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-11-08",
-    "home": "ウルフドッグス名古屋",
-    "away": "ジェイテクトSTINGS愛知",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261108/",
-    "broadcast_time": "13:15",
-    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
@@ -358,6 +322,51 @@
     "source": "https://volleyballmagazine.jp/703335/",
     "broadcast_time": "13:55",
     "match_start_time": "14:05"
+  },
+  {
+    "station": "テレビ静岡",
+    "broadcast_date": "2026-11-15",
+    "home": "サントリーサンバーズ大阪",
+    "away": "ジェイテクトSTINGS愛知",
+    "source": "https://volleyballking.jp/article/96916/",
+    "broadcast_time": "",
+    "match_start_time": ""
+  },
+  {
+    "station": "テレビ静岡",
+    "broadcast_date": "2026-11-15",
+    "home": "北海道イエロースターズ",
+    "away": "広島サンダーズ",
+    "source": "https://volleyballking.jp/article/96916/",
+    "broadcast_time": "",
+    "match_start_time": ""
+  },
+  {
+    "station": "テレビ静岡",
+    "broadcast_date": "2026-11-15",
+    "home": "大阪ブルテオン",
+    "away": "フラーゴラッド鹿児島",
+    "source": "https://volleyballking.jp/article/96916/",
+    "broadcast_time": "",
+    "match_start_time": ""
+  },
+  {
+    "station": "テレビ静岡",
+    "broadcast_date": "2026-11-15",
+    "home": "東レアローズ静岡",
+    "away": "ヴォレアス北海道",
+    "source": "https://volleyballking.jp/article/96916/",
+    "broadcast_time": "",
+    "match_start_time": ""
+  },
+  {
+    "station": "テレビ静岡",
+    "broadcast_date": "2026-11-15",
+    "home": "東京グレートベアーズ",
+    "away": "信州松本トライデンツ",
+    "source": "https://volleyballking.jp/article/96916/",
+    "broadcast_time": "",
+    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
@@ -603,15 +612,6 @@
     "match_start_time": "13:05"
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-11-28",
-    "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
-    "away": "Astemoリヴァーレ茨城",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261128/",
-    "broadcast_time": "13:55",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 3",
     "broadcast_date": "2026-11-28",
     "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
@@ -636,15 +636,6 @@
     "away": "Astemoリヴァーレ茨城",
     "source": "https://www.jsports.co.jp/program_guide/13/12/112037_4285245/ | https://www.jsports.co.jp/program_guide/channel/japanese/four/261124/ | replay",
     "broadcast_time": "21:00",
-    "match_start_time": ""
-  },
-  {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-11-29",
-    "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
-    "away": "Astemoリヴァーレ茨城",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261129/",
-    "broadcast_time": "19:00",
     "match_start_time": ""
   },
   {
@@ -738,15 +729,6 @@
     "match_start_time": ""
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-12-05",
-    "home": "広島サンダーズ",
-    "away": "サントリーサンバーズ大阪",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261205/",
-    "broadcast_time": "13:55",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 3",
     "broadcast_date": "2026-12-05",
     "home": "広島サンダーズ",
@@ -781,15 +763,6 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "15:05"
-  },
-  {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-12-06",
-    "home": "広島サンダーズ",
-    "away": "サントリーサンバーズ大阪",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261206/",
-    "broadcast_time": "20:30",
-    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
@@ -891,15 +864,6 @@
     "match_start_time": "13:05"
   },
   {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-12-19",
-    "home": "東京グレートベアーズ",
-    "away": "サントリーサンバーズ大阪",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261219/",
-    "broadcast_time": "20:00",
-    "match_start_time": ""
-  },
-  {
     "station": "J SPORTS 2",
     "broadcast_date": "2026-12-19",
     "home": "東京グレートベアーズ",
@@ -916,15 +880,6 @@
     "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
     "broadcast_time": "",
     "match_start_time": "13:05"
-  },
-  {
-    "station": "J SPORTS 1",
-    "broadcast_date": "2026-12-20",
-    "home": "東京グレートベアーズ",
-    "away": "サントリーサンバーズ大阪",
-    "source": "https://www.jsports.co.jp/program_guide/channel/japanese/one/261220/",
-    "broadcast_time": "21:00",
-    "match_start_time": ""
   },
   {
     "station": "J SPORTS 2",
