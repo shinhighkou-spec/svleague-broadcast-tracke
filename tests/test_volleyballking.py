@@ -343,6 +343,48 @@ def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_
     assert selected == metadata[:2]
 
 
+def test_volleyballking_parser_version_change_rechecks_previously_checked_articles(tmp_path):
+    from datetime import datetime
+
+    state_path = tmp_path / "volleyballking_crawl_state.json"
+    state_path.write_text(json.dumps({
+        "version": 1,
+        "checked": {
+            "https://volleyballking.jp/article/96916/": {
+                "lastmod": "2026-11-13T19:34:45+09:00",
+                "checked_at": "2026-11-23T16:35:49",
+            },
+            "https://volleyballking.jp/article/97207/": {
+                "lastmod": "2026-11-19T15:32:33+09:00",
+                "checked_at": "2026-11-23T16:12:38",
+            },
+        },
+        "retry_after": {
+            "https://volleyballking.jp/article/96914/": "2026-11-23T16:35:46",
+        },
+    }, ensure_ascii=False), encoding="utf-8")
+
+    state = _load_volleyballking_crawl_state(state_path)
+    assert state["parser_version"] == scraper.VOLLEYBALLKING_PARSER_VERSION
+    assert state["checked"] == {}
+    assert state["retry_after"] == {
+        "https://volleyballking.jp/article/96914/": "2026-11-23T16:35:46"
+    }
+
+    metadata = [
+        ("https://volleyballking.jp/article/97207/", "2026-11-19T15:32:33+09:00"),
+        ("https://volleyballking.jp/article/96916/", "2026-11-13T19:34:45+09:00"),
+    ]
+    selected = _select_volleyballking_article_batch(
+        metadata, state, limit=2, now=datetime(2026, 11, 24, 1, 0, 0)
+    )
+    assert selected == metadata
+
+    _save_volleyballking_crawl_state(state, state_path)
+    saved = json.loads(state_path.read_text(encoding="utf-8"))
+    assert saved["parser_version"] == scraper.VOLLEYBALLKING_PARSER_VERSION
+
+
 def test_volleyballking_relevant_but_unparsed_article_is_retried_without_marking_checked():
     from datetime import datetime, timedelta
 
