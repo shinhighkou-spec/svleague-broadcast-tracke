@@ -594,6 +594,15 @@
     "match_start_time": ""
   },
   {
+    "station": "テレビせとうち",
+    "broadcast_date": "2026-11-28",
+    "home": "岡山シーガルズ",
+    "away": "SAGA久光スプリングス",
+    "source": "https://www.svleague.jp/match/detail/37524/ | official match detail; match date only; broadcast time not stated",
+    "broadcast_time": "",
+    "match_start_time": "13:05"
+  },
+  {
     "station": "J SPORTS 1",
     "broadcast_date": "2026-11-28",
     "home": "ＫＵＲＯＢＥアクアフェアリーズ富山",
