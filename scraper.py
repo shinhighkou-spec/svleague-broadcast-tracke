@@ -2911,8 +2911,9 @@ def reconcile(rows):
             return
         row = normalize_time_semantics(raw_row)
         invalid_jsports_airings = {
-            # J SPORTS' channel-specific guide places these GOLDEN LIVE
-            # broadcasts on J SPORTS 2, not J SPORTS 1.
+            # Legacy weekly-grid rows did not reliably preserve day/channel
+            # columns. Remove only exact keys checked against current official
+            # programme-detail/channel pages; retain the corroborated rows.
             ("J SPORTS 1", "2026-11-01", "フラーゴラッド鹿児島",
              "北海道イエロースターズ", "12:45"),
             ("J SPORTS 1", "2026-10-31", "フラーゴラッド鹿児島",
