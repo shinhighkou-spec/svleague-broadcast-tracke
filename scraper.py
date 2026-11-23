@@ -2944,18 +2944,17 @@ def reconcile(rows):
         invalid_key = (
             row.station, row.broadcast_date, row.home, row.away, row.broadcast_time or ""
         )
-        source_text = (row.source or "").casefold()
-        legacy_channel_only = "/program_guide/channel/japanese/" in source_text
-        unnamed_golden_live = "jsports.co.jp/volleyball/svleague/golden_live/" in source_text
-        has_program_detail = (
-            "/program_guide/13/" in source_text
-            or "/match/detail/" in source_text
+        source_parts = [
+            part.strip().casefold()
+            for part in (row.source or "").split("|")
+            if part.strip()
+        ]
+        legacy_source_only = bool(source_parts) and all(
+            "/program_guide/channel/japanese/" in part
+            or "jsports.co.jp/volleyball/svleague/golden_live/" in part
+            for part in source_parts
         )
-        if (
-            invalid_key in invalid_jsports_airings
-            and not has_program_detail
-            and (legacy_channel_only or unnamed_golden_live)
-        ):
+        if invalid_key in invalid_jsports_airings and legacy_source_only:
             print("UNVERIFIED LEGACY J SPORTS CHANNEL/TIME ATTRIBUTION REMOVED:", invalid_key)
             return
         key4 = identity(row)
