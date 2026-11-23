@@ -641,6 +641,12 @@ def test_volleyballking_match_date_enriches_delayed_airings_without_changing_air
             "ヴォレアス北海道", "https://volleyballmagazine.jp/703335/",
             "00:55", "",
         ),
+        # Legacy false row from article 96916 must not shadow the actual 11/16 TV airing.
+        Broadcast(
+            "テレビ静岡", "2026-11-15", "東レアローズ静岡",
+            "ヴォレアス北海道", "https://volleyballking.jp/article/96916/",
+            "", "",
+        ),
     ]
     updates = []
     matched, updated, unresolved = scraper._apply_volleyballking_match_station_candidates(
