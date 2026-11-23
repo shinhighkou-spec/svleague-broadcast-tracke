@@ -618,3 +618,16 @@ def test_svleague_match_detail_does_not_promote_unknown_non_sv_teams():
     </main>
     """
     assert parse_svleague_match_detail_html(html) is None
+
+
+def test_reconcile_removes_verified_j_sports_1_misattributions_for_november_7_and_8():
+    rows = reconcile([])
+    keys = {
+        (r.station, r.broadcast_date, r.home, r.away, r.broadcast_time)
+        for r in rows
+    }
+    match = ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知")
+    assert ("J SPORTS 1", "2026-11-07", *match, "21:00") not in keys
+    assert ("J SPORTS 1", "2026-11-08", *match, "13:15") not in keys
+    assert ("J SPORTS 2", "2026-11-07", *match, "21:00") in keys
+    assert ("J SPORTS 2", "2026-11-08", *match, "13:15") in keys
