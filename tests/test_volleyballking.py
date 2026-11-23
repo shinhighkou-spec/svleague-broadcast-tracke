@@ -10,6 +10,10 @@ from scraper import (
     _extract_volleyballking_jsonld_articles,
     _merge_volleyballking_sitemap_candidates,
     _parse_volleyballking_discovery_document,
+    _load_volleyballking_crawl_state,
+    _save_volleyballking_crawl_state,
+    _select_volleyballking_article_batch,
+    _record_volleyballking_article_attempt,
     reconcile,
 )
 
@@ -263,3 +267,76 @@ def test_volleyballking_article_with_multiple_stations_is_not_guessed():
     )
     assert scraper._extract_volleyballking_broadcasts(article) == []
 
+
+
+
+def test_volleyballking_crawl_state_batches_unchecked_articles_and_persists_progress(tmp_path):
+    from datetime import datetime, timedelta
+
+    state_path = tmp_path / "volleyballking_crawl_state.json"
+    state = _load_volleyballking_crawl_state(state_path)
+    now = datetime(2026, 11, 24, 0, 0, 0)
+    metadata = [
+        ("https://volleyballking.jp/article/1001/", "2026-11-23"),
+        ("https://volleyballking.jp/article/1002/", "2026-11-22"),
+        ("https://volleyballking.jp/article/1003/", "2026-11-21"),
+    ]
+
+    batch = _select_volleyballking_article_batch(metadata, state, limit=2, now=now)
+    assert batch == metadata[:2]
+
+    _record_volleyballking_article_attempt(
+        state, metadata[0][0], metadata[0][1], True, now=now
+    )
+    _record_volleyballking_article_attempt(
+        state, metadata[1][0], metadata[1][1], False, now=now
+    )
+    _save_volleyballking_crawl_state(state, state_path)
+    loaded = _load_volleyballking_crawl_state(state_path)
+
+    assert loaded["checked"][metadata[0][0]]["lastmod"] == "2026-11-23"
+    assert metadata[1][0] in loaded["retry_after"]
+    # The failed URL is held during its retry cooldown; the next unchecked
+    # article is still selected, so one failing page cannot stall the backlog.
+    next_batch = _select_volleyballking_article_batch(
+        metadata, loaded, limit=3, now=now + timedelta(hours=1)
+    )
+    assert next_batch == [metadata[2]]
+
+    retry_batch = _select_volleyballking_article_batch(
+        metadata, loaded, limit=3, now=now + timedelta(hours=25)
+    )
+    assert metadata[1] in retry_batch
+
+
+def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_path):
+    from datetime import datetime, timedelta
+
+    now = datetime(2026, 11, 24, 0, 0, 0)
+    old_checked = (now - timedelta(days=31)).isoformat(timespec="seconds")
+    state = {
+        "version": 1,
+        "checked": {
+            "https://volleyballking.jp/article/2001/": {
+                "lastmod": "2026-11-01",
+                "checked_at": now.isoformat(timespec="seconds"),
+            },
+            "https://volleyballking.jp/article/2002/": {
+                "lastmod": "",
+                "checked_at": old_checked,
+            },
+            "https://volleyballking.jp/article/2003/": {
+                "lastmod": "2026-11-23",
+                "checked_at": now.isoformat(timespec="seconds"),
+            },
+        },
+        "retry_after": {},
+    }
+    metadata = [
+        ("https://volleyballking.jp/article/2001/", "2026-11-23"),
+        ("https://volleyballking.jp/article/2002/", ""),
+        ("https://volleyballking.jp/article/2003/", "2026-11-23"),
+    ]
+
+    selected = _select_volleyballking_article_batch(metadata, state, limit=10, now=now)
+    assert selected == metadata[:2]
