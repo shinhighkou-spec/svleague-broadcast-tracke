@@ -1820,18 +1820,26 @@ def _select_volleyballking_article_batch(article_metadata, state, limit=VOLLEYBA
     return selected
 
 
-def _record_volleyballking_article_attempt(state, url, lastmod, retrieval_ok, now=None):
-    """Mark successfully fetched pages reviewed; defer transport failures for 24 hours."""
+def _record_volleyballking_article_attempt(
+    state, url, lastmod, retrieval_ok, parse_ok=None, now=None
+):
+    """Mark fully reviewed pages; retry relevant but unparsed pages after 24 hours."""
     now = now or datetime.now()
     state.setdefault("checked", {})
     state.setdefault("retry_after", {})
-    if retrieval_ok:
+    if parse_ok is None:
+        # Backward-compatible default for existing callers/tests: retrieval
+        # success used to mean that the page had been reviewed.
+        parse_ok = retrieval_ok
+    if retrieval_ok and parse_ok:
         state["checked"][url] = {
             "lastmod": str(lastmod or ""),
             "checked_at": now.isoformat(timespec="seconds"),
         }
         state["retry_after"].pop(url, None)
     else:
+        # Keep any prior successful check, but do not advance its timestamp.
+        # A later retry can therefore still detect an updated sitemap lastmod.
         state["retry_after"][url] = (
             now + timedelta(hours=VOLLEYBALLKING_RETRY_DELAY_HOURS)
         ).isoformat(timespec="seconds")
@@ -1911,11 +1919,14 @@ def scrape_volleyballking(page, rows):
 
     for href, title, lastmod in candidates:
         retrieval_ok = False
+        parse_ok = False
+        review_evidence = ""
         try:
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
             evidence = _page_evidence_text(page)
             retrieval_ok = bool(evidence)
+            review_evidence = evidence
             article_text = title + " " + evidence
             items = _extract_volleyballking_broadcasts(article_text)
             if not items:
@@ -1931,6 +1942,7 @@ def scrape_volleyballking(page, rows):
                 http_evidence = _fetch_volleyballking_http_evidence(page, href)
                 if http_evidence:
                     retrieval_ok = True
+                    review_evidence = http_evidence
                     items = _extract_volleyballking_broadcasts(http_evidence)
                     if not items:
                         article_stations = [st for st in VALID_STATIONS if st in http_evidence]
@@ -1945,9 +1957,24 @@ def scrape_volleyballking(page, rows):
 
             if not items:
                 needs_review += 1
-                print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title or "sitemap candidate")
+                review_text = title + " " + review_evidence
+                review_required = any(
+                    term.casefold() in review_text.casefold()
+                    for term in VOLLEYBALLKING_TITLE_TERMS
+                )
+                # An unrelated article is fully reviewed once fetched. A page
+                # that looks broadcast-related but cannot be parsed stays due
+                # for another attempt instead of being marked checked for 30 days.
+                parse_ok = not review_required
+                print(
+                    "VOLLEYBALLKING NEEDS REVIEW:", href,
+                    "|", title or "sitemap candidate",
+                    "|", "retry: broadcast-related but unparsed"
+                    if review_required else "no broadcast-related terms",
+                )
                 continue
 
+            parse_ok = True
             for station, d, match, tm in items:
                 identity = (station, d, match[0], match[1])
                 existing_records = list(rows) + load_previous() + known_facts()
@@ -1974,7 +2001,7 @@ def scrape_volleyballking(page, rows):
         finally:
             if lastmod is not None:
                 _record_volleyballking_article_attempt(
-                    state, href, lastmod, retrieval_ok
+                    state, href, lastmod, retrieval_ok, parse_ok
                 )
 
     try:
