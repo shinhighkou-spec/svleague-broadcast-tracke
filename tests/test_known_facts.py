@@ -180,9 +180,10 @@ def test_reconcile_removes_unknown_j_sports_placeholder_when_channel_is_confirme
         "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "21:00"
     )
     channel = Broadcast(
-        "J SPORTS 1", "2026-11-07",
+        "J SPORTS 2", "2026-11-07",
         "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知",
-        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/", "21:00"
+        "https://www.jsports.co.jp/program_guide/channel/japanese/two/261107/ | https://www.jsports.co.jp/program_guide/13/11/112533_2315278/",
+        "21:00"
     )
     rows = reconcile([placeholder, channel])
     assert not any(
@@ -194,7 +195,7 @@ def test_reconcile_removes_unknown_j_sports_placeholder_when_channel_is_confirme
         for r in rows
     )
     assert any(
-        r.station == "J SPORTS 1"
+        r.station == "J SPORTS 2"
         and r.broadcast_date == "2026-11-07"
         and r.home == "ウルフドッグス名古屋"
         and r.away == "ジェイテクトSTINGS愛知"
