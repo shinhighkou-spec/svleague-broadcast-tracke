@@ -384,3 +384,139 @@ def test_volleyballking_fetched_unrelated_article_can_be_marked_reviewed():
     )
     assert url in state["checked"]
     assert url not in state["retry_after"]
+
+
+def test_volleyballking_structured_schedule_maps_each_station_only_to_its_game():
+    article = """2026.11.13 19:45
+◾︎SVリーグ男子第4節 試合日程・放送情報・配信情報
+ウルフドッグス名古屋 vs 日本製鉄堺ブレイザーズ
+▼日時
+GAME1：11月14日（土）13時5分～
+GAME2：11月15日（日）13時5分～
+▼会場
+HAPPINESS ARENA
+▼放送
+GAME1：テレビ長崎
+GAME2：なし
+▼配信
+J SPORTSオンデマンド
+サントリーサンバーズ大阪 vs ジェイテクトSTINGS愛知
+▼日時
+GAME1：11月14日（土）13時5分～
+GAME2：11月15日（日）13時5分～
+▼会場
+おおきにアリーナ舞洲
+▼配信
+J SPORTSオンデマンド
+北海道イエロースターズ vs 広島サンダーズ
+▼日時
+GAME1：11月14日（土）14時5分～
+GAME2：11月15日（日）13時5分～
+▼会場
+北ガスアリーナ札幌46
+▼配信
+J SPORTSオンデマンド
+東京グレートベアーズ vs 信州松本トライデンツ
+▼日時
+GAME1：11月14日（土）14時5分～
+GAME2：11月15日（日）14時5分～
+▼会場
+国立代々木競技場第二体育館
+▼配信
+J SPORTSオンデマンド
+東レアローズ静岡 vs ヴォレアス北海道
+▼日時
+GAME1：11月14日（土）14時5分～
+GAME2：11月15日（日）14時5分～
+▼会場
+このはなアリーナ
+▼放送
+GAME1：なし
+GAME2：テレビ静岡
+▼配信
+J SPORTSオンデマンド
+大阪ブルテオン vs フラーゴラッド鹿児島
+▼日時
+GAME1：11月14日（土）14時5分～
+GAME2：11月15日（日）14時5分～
+▼会場
+パナソニックアリーナ
+▼配信
+J SPORTSオンデマンド
+"""
+    assert scraper._extract_volleyballking_schedule_blocks(article) == [
+        (
+            "テレビ長崎",
+            "2026-11-14",
+            ("ウルフドッグス名古屋", "日本製鉄堺ブレイザーズ"),
+            "",
+            "13:05",
+        ),
+        (
+            "テレビ静岡",
+            "2026-11-15",
+            ("東レアローズ静岡", "ヴォレアス北海道"),
+            "",
+            "14:05",
+        ),
+    ]
+
+
+def test_volleyballking_structured_schedule_does_not_use_article_publication_date():
+    article = """2026.11.13 19:45
+◾︎SVリーグ男子第4節 試合日程・放送情報・配信情報
+東レアローズ静岡 vs ヴォレアス北海道
+▼日時
+GAME1：11月14日（土）14時5分～
+GAME2：11月15日（日）14時5分～
+▼放送
+GAME1：なし
+GAME2：テレビ静岡
+"""
+    items = scraper._extract_volleyballking_schedule_blocks(article)
+    assert items is not None
+    assert [item[1] for item in items] == ["2026-11-15"]
+    assert all(item[1] != "2026-11-13" for item in items)
+    assert all(item[3] == "" and item[4] == "14:05" for item in items)
+
+
+def test_reconcile_removes_only_four_misassociated_tv_shizuoka_rows_from_article_96916():
+    article_source = "https://volleyballking.jp/article/96916/"
+    false_rows = [
+        Broadcast("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪",
+                  "ジェイテクトSTINGS愛知", article_source),
+        Broadcast("テレビ静岡", "2026-11-15", "北海道イエロースターズ",
+                  "広島サンダーズ", article_source),
+        Broadcast("テレビ静岡", "2026-11-15", "東京グレートベアーズ",
+                  "信州松本トライデンツ", article_source),
+        Broadcast("テレビ静岡", "2026-11-15", "大阪ブルテオン",
+                  "フラーゴラッド鹿児島", article_source),
+    ]
+    correct_row = Broadcast(
+        "テレビ静岡", "2026-11-15", "東レアローズ静岡",
+        "ヴォレアス北海道", article_source, "", "14:05"
+    )
+    independently_sourced_row = Broadcast(
+        "テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪",
+        "ジェイテクトSTINGS愛知", "https://official.example/broadcast"
+    )
+    rows = reconcile(false_rows + [correct_row, independently_sourced_row])
+    keys = {(r.station, r.broadcast_date, r.home, r.away, r.source) for r in rows}
+    assert not any(key[4] == article_source and key[:4] in {
+        ("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪", "ジェイテクトSTINGS愛知"),
+        ("テレビ静岡", "2026-11-15", "北海道イエロースターズ", "広島サンダーズ"),
+        ("テレビ静岡", "2026-11-15", "東京グレートベアーズ", "信州松本トライデンツ"),
+        ("テレビ静岡", "2026-11-15", "大阪ブルテオン", "フラーゴラッド鹿児島"),
+    } for key in keys)
+    assert (
+        "テレビ静岡", "2026-11-15", "東レアローズ静岡",
+        "ヴォレアス北海道", article_source
+    ) in keys
+    assert any(
+        r.station == "テレビ静岡"
+        and r.broadcast_date == "2026-11-15"
+        and r.home == "サントリーサンバーズ大阪"
+        and r.away == "ジェイテクトSTINGS愛知"
+        and r.source == "https://official.example/broadcast"
+        for r in rows
+    )
