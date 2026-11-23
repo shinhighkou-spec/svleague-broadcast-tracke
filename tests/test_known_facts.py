@@ -695,3 +695,93 @@ def test_reconcile_preserves_new_program_detail_for_previously_invalid_jsports_k
         and "/program_guide/13/" in (r.source or "")
         for r in rows
     )
+
+
+def test_gaora_program_schedule_parser_keeps_live_replays_and_24_hour_rollover():
+    from scraper import parse_gaora_program_schedule_row
+
+    nov26 = (
+        "～男子～日本製鉄堺ブレイザーズ vs 東京グレートベアーズ"
+        "（11.26和歌山ビッグホエール） 解説：佐々木太一 "
+        "11月26日(木) 18:25 ～ 21:30 初回放送 "
+        "11月27日(金) 15:30 ～ 18:25 生中継"
+    )
+    assert parse_gaora_program_schedule_row(nov26) == [
+        (
+            "2026-11-26",
+            ("日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+            "18:25",
+            "2026-11-26",
+            False,
+        ),
+        (
+            "2026-11-27",
+            ("日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+            "15:30",
+            "2026-11-26",
+            True,
+        ),
+    ]
+
+    dec19 = (
+        "～女子～東レアローズ滋賀 vs PFUブルーキャッツ石川かほく"
+        "（12.19滋賀ダイハツアリーナ） "
+        "12月19日(土) 12:55 ～ 16:00 初回放送 "
+        "12月19日(土) 24:00 ～ 27:00 生中継"
+    )
+    parsed = parse_gaora_program_schedule_row(dec19)
+    assert parsed == [
+        (
+            "2026-12-19",
+            ("東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+            "12:55",
+            "2026-12-19",
+            False,
+        ),
+        (
+            "2026-12-20",
+            ("東レアローズ滋賀", "PFUブルーキャッツ石川かほく"),
+            "00:00",
+            "2026-12-19",
+            True,
+        ),
+    ]
+
+
+def test_gaora_replay_airtime_does_not_replace_original_match_start():
+    from scraper import Broadcast, known_facts, parse_gaora_program_schedule_row, reconcile
+
+    row = (
+        "～男子～日本製鉄堺ブレイザーズ vs 東京グレートベアーズ"
+        "（11.26和歌山ビッグホエール） "
+        "11月26日(木) 18:25 ～ 21:30 初回放送 "
+        "11月27日(金) 15:30 ～ 18:25 生中継"
+    )
+    parsed = parse_gaora_program_schedule_row(row)
+    fact = next(
+        r for r in known_facts()
+        if r.station == "GAORA SPORTS"
+        and r.broadcast_date == "2026-11-26"
+        and r.home == "日本製鉄堺ブレイザーズ"
+        and r.away == "東京グレートベアーズ"
+    )
+    replay = Broadcast(
+        "GAORA SPORTS",
+        parsed[1][0],
+        parsed[1][1][0],
+        parsed[1][1][1],
+        "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-11-26 | replay",
+        parsed[1][2],
+        fact.match_start_time,
+    )
+    rows = reconcile([replay, fact])
+    found = next(
+        r for r in rows
+        if r.station == "GAORA SPORTS"
+        and r.broadcast_date == "2026-11-27"
+        and r.home == "日本製鉄堺ブレイザーズ"
+        and r.away == "東京グレートベアーズ"
+        and r.broadcast_time == "15:30"
+    )
+    assert found.match_start_time == "18:35"
+    assert found.broadcast_time != found.match_start_time
