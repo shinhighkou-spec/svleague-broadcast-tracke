@@ -298,8 +298,9 @@ def test_public_schedule_never_displays_match_start_as_broadcast_start(monkeypat
                   "ジェイテクトSTINGS愛知", "test-source", "", "14:35")
     ], {})
     html = (site_dir / "index.html").read_text(encoding="utf-8")
-    assert '<div class="time">—</div>' in html
-    assert '<div class="time">14:35</div>' not in html
+    assert '<span class="air-time">未公表</span>' in html
+    assert '<span class="air-time">14:35</span>' not in html
+    assert '<span class="match-start-time">試合開始 14:35</span>' in html
 
 
 def test_duckduckgo_result_parser_resolves_redirect_and_keeps_snippet():
