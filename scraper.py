@@ -463,45 +463,66 @@ def _parse_svleague_match_aliases(text):
 
 
 def parse_svleague_match_detail_html(html):
-    """Extract explicit TV stations from the official match page's 放送・配信 section.
+    """Parse official fixture details and any explicitly listed TV stations.
 
-    The date/time above that section are fixture date and match-start time. The
-    official page does not state an airing clock, so callers must leave the
-    broadcast_time empty rather than copying the match-start time.
+    Some valid upcoming match pages omit both the broadcast section and the
+    recent-results section. Those pages are still successfully reviewed as
+    fixtures with no confirmed TV station; unknown teams remain unparsed so
+    lower-division or unrelated competitions cannot become SV rows.
     """
     raw = str(html or "")
     body_soup = BeautifulSoup(raw, "html.parser")
     body_text = body_soup.get_text(" ", strip=True)
-    marker_end = raw.find("直近の試合結果")
-    marker_start = raw.rfind("放送・配信", 0, marker_end) if marker_end >= 0 else -1
-    if marker_start < 0 or marker_end < 0:
-        return None
 
-    body_end = body_text.find("直近の試合結果")
-    heading_position = body_text.rfind("放送・配信", 0, body_end) if body_end >= 0 else -1
-    if heading_position < 0:
-        return None
-    match_text = body_text[:heading_position]
+    def first_page_end(text):
+        positions = [
+            text.find(marker)
+            for marker in ("直近の試合結果", "Official Partners", "オフィシャルパートナー")
+            if text.find(marker) >= 0
+        ]
+        return min(positions) if positions else len(text)
+
+    marker_end = first_page_end(raw)
+    body_end = first_page_end(body_text)
+    heading_position = body_text.rfind("放送・配信", 0, body_end)
+    if heading_position >= 0:
+        # A global navigation link is not the match's broadcast section.
+        # The real section follows a parseable fixture card.
+        if not _parse_svleague_match_aliases(body_text[:heading_position]):
+            heading_position = -1
+
+    match_text = (
+        body_text[:heading_position]
+        if heading_position >= 0 else body_text[:body_end]
+    )
     broadcast_date = parse_date(match_text)
     match = _parse_svleague_match_aliases(match_text)
     match_start_time = parse_time(match_text)
     if not broadcast_date or not valid_season_date(broadcast_date) or not match:
         return None
 
-    section_soup = BeautifulSoup(raw[marker_start:marker_end], "html.parser")
-    section_text = section_soup.get_text(" ", strip=True)
-    section_text += " " + " ".join(
-        image.get("alt", "") for image in section_soup.find_all("img")
-        if image.get("alt")
-    )
     stations = []
-    for name in sorted(VALID_STATIONS, key=len, reverse=True):
-        if name not in section_text:
-            continue
-        station = clean_station(name)
-        if any(station == existing or station in existing or existing in station for existing in stations):
-            continue
-        stations.append(station)
+    if heading_position >= 0:
+        marker_start = raw.rfind("放送・配信", 0, marker_end)
+        if marker_start < 0:
+            return None
+        section_soup = BeautifulSoup(raw[marker_start:marker_end], "html.parser")
+        section_text = section_soup.get_text(" ", strip=True)
+        section_text += " " + " ".join(
+            image.get("alt", "") for image in section_soup.find_all("img")
+            if image.get("alt")
+        )
+        for name in sorted(VALID_STATIONS, key=len, reverse=True):
+            if name not in section_text:
+                continue
+            station = clean_station(name)
+            if any(
+                station == existing or station in existing or existing in station
+                for existing in stations
+            ):
+                continue
+            stations.append(station)
+
     return broadcast_date, match, match_start_time, stations
 
 
@@ -523,11 +544,12 @@ def scrape_svleague_match_details(page, rows):
     print("SV.LEAGUE MATCH DETAIL URLS DISCOVERED:", len(urls))
     if not urls:
         raise RuntimeError("SV.LEAGUE homepage returned no match-detail URLs")
-    if len(urls) > 100:
+    max_pages = 200
+    if len(urls) > max_pages:
         flag_source_discovery_degraded(
-            f"SV.LEAGUE homepage exposed {len(urls)} match pages; only the first 100 were checked"
+            f"SV.LEAGUE homepage exposed {len(urls)} match pages; only the first {max_pages} were checked"
         )
-        urls = urls[:100]
+        urls = urls[:max_pages]
 
     existing_records = list(rows) + load_previous() + known_facts()
     fetched = failed = no_tv = confirmed = added = 0
