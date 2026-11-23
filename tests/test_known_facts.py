@@ -657,7 +657,20 @@ def test_reconcile_removes_unverified_legacy_j_sports_channel_assignments():
         ("J SPORTS 1", "2026-12-19", *match_dec19, "20:00"),
         ("J SPORTS 1", "2026-12-20", *match_dec19, "21:00"),
     ]
-    assert not (set(invalid) & keys)
+    independently_reported = (
+        "J SPORTS 4", "2026-10-31", *match_nov1, "13:45"
+    )
+    assert independently_reported in keys
+    assert not ((set(invalid) - {independently_reported}) & keys)
+    assert any(
+        r.station == "J SPORTS 4"
+        and r.broadcast_date == "2026-10-31"
+        and r.home == match_nov1[0]
+        and r.away == match_nov1[1]
+        and r.broadcast_time == "13:45"
+        and "volleyballmagazine.jp/702000/" in r.source
+        for r in rows
+    )
 
     # Keep the better-supported channel-specific/detail-page rows.
     valid = [
