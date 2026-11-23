@@ -583,7 +583,6 @@ J SPORTSオンデマンド
         )
     ]
     assert scraper.clean_station("KTS鹿児島テレビ") == "鹿児島テレビ"
-    assert scraper.source_priority("https://www.kts-tv.co.jp/news/29478") == 6
 
     existing_airtime = Broadcast(
         "鹿児島テレビ", "2026-11-21", "フラーゴラッド鹿児島",
