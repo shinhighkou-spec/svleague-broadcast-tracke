@@ -1705,7 +1705,7 @@ def _extract_volleyballking_schedule_blocks(text):
     section_start = next(
         (
             index for index, line in enumerate(lines)
-            if "試合日程" in line and "放送情報" in line
+            if len(line) <= 120 and "試合日程" in line and "放送情報" in line
         ),
         None,
     )
