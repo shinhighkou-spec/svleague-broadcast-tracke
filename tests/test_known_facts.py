@@ -180,9 +180,10 @@ def test_reconcile_removes_unknown_j_sports_placeholder_when_channel_is_confirme
         "https://www.jsports.co.jp/volleyball/svleague/golden_live/ | 録画放送", "21:00"
     )
     channel = Broadcast(
-        "J SPORTS 1", "2026-11-07",
+        "J SPORTS 2", "2026-11-07",
         "ウルフドッグス名古屋", "ジェイテクトSTINGS愛知",
-        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/", "21:00"
+        "https://www.jsports.co.jp/program_guide/channel/japanese/two/261107/ | https://www.jsports.co.jp/program_guide/13/11/112533_2315278/",
+        "21:00"
     )
     rows = reconcile([placeholder, channel])
     assert not any(
@@ -194,7 +195,7 @@ def test_reconcile_removes_unknown_j_sports_placeholder_when_channel_is_confirme
         for r in rows
     )
     assert any(
-        r.station == "J SPORTS 1"
+        r.station == "J SPORTS 2"
         and r.broadcast_date == "2026-11-07"
         and r.home == "ウルフドッグス名古屋"
         and r.away == "ジェイテクトSTINGS愛知"
@@ -561,3 +562,105 @@ def test_site_shows_broadcast_and_match_start_times_as_separate_labels(tmp_path,
     assert "10:00" in html
     assert html.count("試合開始 13:05") == 1
     assert html.count("試合開始 14:05") == 1
+
+
+def test_svleague_match_detail_without_tv_or_recent_results_is_reviewed_as_no_tv():
+    html = """
+    <main>
+      <nav><a href="/broadcast/">放送・配信</a></nav>
+      <h2>WOMEN Regular Season第8節 / GAME1</h2>
+      <div>A愛知 HOME</div>
+      <div>2026.12.05 (土)</div>
+      <div>14:05</div>
+      <div>東レ滋賀 AWAY</div>
+      <h2>Official Partners オフィシャルパートナー</h2>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) == (
+        "2026-12-05",
+        ("アリーザ愛知", "東レアローズ滋賀"),
+        "14:05",
+        [],
+    )
+
+
+def test_svleague_match_detail_with_tv_section_but_no_recent_results_is_parsed():
+    html = """
+    <main>
+      <h2>WOMEN Regular Season第8節 / GAME1</h2>
+      <div>A愛知 HOME</div>
+      <div>2026.12.05 (土)</div>
+      <div>14:05</div>
+      <div>東レ滋賀 AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li>群馬テレビ</li></ul>
+      <h2>Official Partners オフィシャルパートナー</h2>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) == (
+        "2026-12-05",
+        ("アリーザ愛知", "東レアローズ滋賀"),
+        "14:05",
+        ["群馬テレビ"],
+    )
+
+
+def test_svleague_match_detail_does_not_promote_unknown_non_sv_teams():
+    html = """
+    <main>
+      <h2>WOMEN Regular Season第7節 / GAME1</h2>
+      <div>仙台 HOME</div>
+      <div>2026.11.28 (土)</div>
+      <div>14:05</div>
+      <div>フォレスト AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li>群馬テレビ</li></ul>
+      <h3>直近の試合結果</h3>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) is None
+
+
+def test_reconcile_removes_unverified_legacy_j_sports_channel_assignments():
+    rows = reconcile([])
+    keys = {
+        (r.station, r.broadcast_date, r.home, r.away, r.broadcast_time)
+        for r in rows
+    }
+    match_nov1 = ("フラーゴラッド鹿児島", "北海道イエロースターズ")
+    match_nov7 = ("ウルフドッグス名古屋", "ジェイテクトSTINGS愛知")
+    match_nov28 = ("ＫＵＲＯＢＥアクアフェアリーズ富山", "Astemoリヴァーレ茨城")
+    match_dec5 = ("広島サンダーズ", "サントリーサンバーズ大阪")
+    match_dec19 = ("東京グレートベアーズ", "サントリーサンバーズ大阪")
+
+    invalid = [
+        ("J SPORTS 1", "2026-10-31", *match_nov1, "13:45"),
+        ("J SPORTS 4", "2026-10-31", *match_nov1, "13:45"),
+        ("J SPORTS 1", "2026-11-01", *match_nov1, "12:45"),
+        ("J SPORTS 1", "2026-11-07", *match_nov7, "21:00"),
+        ("J SPORTS 1", "2026-11-08", *match_nov7, "13:15"),
+        ("J SPORTS 1", "2026-11-21", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス", "12:45"),
+        ("J SPORTS 1", "2026-11-22", "PFUブルーキャッツ石川かほく", "埼玉上尾メディックス", "20:45"),
+        ("J SPORTS 1", "2026-11-28", *match_nov28, "13:55"),
+        ("J SPORTS 1", "2026-11-29", *match_nov28, "19:00"),
+        ("J SPORTS 1", "2026-12-05", *match_dec5, "13:55"),
+        ("J SPORTS 1", "2026-12-06", *match_dec5, "20:30"),
+        ("J SPORTS 1", "2026-12-19", *match_dec19, "20:00"),
+        ("J SPORTS 1", "2026-12-20", *match_dec19, "21:00"),
+    ]
+    assert not (set(invalid) & keys)
+
+    # Keep the better-supported channel-specific/detail-page rows.
+    valid = [
+        ("J SPORTS 2", "2026-11-01", *match_nov1, "12:45"),
+        ("J SPORTS 2", "2026-11-07", *match_nov7, "21:00"),
+        ("J SPORTS 2", "2026-11-08", *match_nov7, "13:15"),
+        ("J SPORTS 3", "2026-11-28", *match_nov28, "13:55"),
+        ("J SPORTS 3", "2026-11-29", *match_nov28, "19:00"),
+        ("J SPORTS 3", "2026-12-05", *match_dec5, "13:55"),
+        ("J SPORTS 2", "2026-12-06", *match_dec5, "20:30"),
+        ("J SPORTS 2", "2026-12-19", *match_dec19, "20:00"),
+        ("J SPORTS 2", "2026-12-20", *match_dec19, "21:00"),
+    ]
+    assert set(valid) <= keys
+    assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "") in keys
