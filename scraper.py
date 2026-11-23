@@ -145,6 +145,8 @@ def clean_station(s: str) -> str:
         "OHK岡山放送": "岡山放送",
         "TSCテレビせとうち": "テレビせとうち",
         "BS12 トゥエルビ": "BS12",
+        "KTS鹿児島": "鹿児島テレビ",
+        "KTS鹿児島テレビ": "鹿児島テレビ",
     }
     return aliases.get(s, s)
 
@@ -1150,7 +1152,7 @@ REGIONAL_STATIONS = {
     "兵庫": ["サンテレビ", "読売テレビ", "毎日放送", "朝日放送テレビ", "関西テレビ"],
     "岡山": ["RSK山陽放送", "岡山放送", "テレビせとうち", "西日本放送"],
     "広島": ["広島テレビ", "広島ホームテレビ", "中国放送", "テレビ新広島"],
-    "鹿児島": ["鹿児島テレビ", "鹿児島読売テレビ", "南日本放送", "鹿児島放送"],
+    "鹿児島": ["鹿児島テレビ", "KTS鹿児島", "KTS鹿児島テレビ", "鹿児島読売テレビ", "南日本放送", "鹿児島放送"],
     "佐賀": ["サガテレビ", "NHK佐賀"],
     "長崎": ["テレビ長崎"],
 }
@@ -3152,7 +3154,7 @@ def reconcile(rows):
             return 8
         if any(token in source for token in ("program_guide/channel", "gtv.co.jp/timetable")):
             return 7
-        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp", "tss-tv.co.jp")):
+        if any(domain in source for domain in ("jsports.co.jp", "gaora.co.jp", "myjcom.jp", "tss-tv.co.jp", "kts-tv.co.jp")):
             return 6
         if "volleyballmagazine.jp" in source:
             return 3
