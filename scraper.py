@@ -1803,6 +1803,15 @@ def _extract_volleyballking_schedule_blocks(text):
     return found
 
 
+VOLLEYBALLKING_INVALID_ARTICLE_96916_ROWS = {
+    ("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪", "ジェイテクトSTINGS愛知"),
+    ("テレビ静岡", "2026-11-15", "北海道イエロースターズ", "広島サンダーズ"),
+    ("テレビ静岡", "2026-11-15", "東京グレートベアーズ", "信州松本トライデンツ"),
+    ("テレビ静岡", "2026-11-15", "大阪ブルテオン", "フラーゴラッド鹿児島"),
+    ("テレビ静岡", "2026-11-15", "東レアローズ静岡", "ヴォレアス北海道"),
+}
+
+
 def _apply_volleyballking_match_station_candidates(items, rows, existing_records, source):
     """Attach a structured article's match-start time to an already-dated TV airing.
 
@@ -1832,6 +1841,12 @@ def _apply_volleyballking_match_station_candidates(items, rows, existing_records
             if record.station == station
             and record.home == match[0]
             and record.away == match[1]
+            and not (
+                (
+                    record.station, record.broadcast_date, record.home, record.away
+                ) in VOLLEYBALLKING_INVALID_ARTICLE_96916_ROWS
+                and "volleyballking.jp/article/96916/" in (record.source or "").casefold()
+            )
         ]
         exact = [
             record for record in candidates
@@ -3243,13 +3258,7 @@ def reconcile(rows):
         ("GAORA SPORTS","2026-10-31","東レアローズ滋賀","デンソーエアリービーズ"),
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
-    invalid_volleyballking_article_96916 = {
-        ("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪", "ジェイテクトSTINGS愛知"),
-        ("テレビ静岡", "2026-11-15", "北海道イエロースターズ", "広島サンダーズ"),
-        ("テレビ静岡", "2026-11-15", "東京グレートベアーズ", "信州松本トライデンツ"),
-        ("テレビ静岡", "2026-11-15", "大阪ブルテオン", "フラーゴラッド鹿児島"),
-        ("テレビ静岡", "2026-11-15", "東レアローズ静岡", "ヴォレアス北海道"),
-    }
+    invalid_volleyballking_article_96916 = VOLLEYBALLKING_INVALID_ARTICLE_96916_ROWS
     out = {}
 
     def identity(row):
