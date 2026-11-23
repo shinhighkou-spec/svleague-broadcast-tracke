@@ -472,12 +472,13 @@ def parse_svleague_match_detail_html(html):
     raw = str(html or "")
     body_soup = BeautifulSoup(raw, "html.parser")
     body_text = body_soup.get_text(" ", strip=True)
-    marker_start = raw.find("放送・配信")
-    marker_end = raw.find("直近の試合結果", marker_start + len("放送・配信")) if marker_start >= 0 else -1
+    marker_end = raw.find("直近の試合結果")
+    marker_start = raw.rfind("放送・配信", 0, marker_end) if marker_end >= 0 else -1
     if marker_start < 0 or marker_end < 0:
         return None
 
-    heading_position = body_text.find("放送・配信")
+    body_end = body_text.find("直近の試合結果")
+    heading_position = body_text.rfind("放送・配信", 0, body_end) if body_end >= 0 else -1
     if heading_position < 0:
         return None
     match_text = body_text[:heading_position]
