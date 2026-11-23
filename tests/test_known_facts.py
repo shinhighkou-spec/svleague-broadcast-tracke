@@ -493,6 +493,7 @@ def test_tss_official_live_broadcast_is_preserved_with_separate_airtime_and_matc
 def test_svleague_match_detail_reads_explicit_tv_station_and_keeps_match_start_separate():
     html = """
     <main>
+      <nav><a href="/broadcast/">放送・配信</a></nav>
       <h2>WOMEN Regular Season第7節 / GAME1</h2>
       <div>岡山 HOME</div>
       <div>2026.11.28 (土)</div>
