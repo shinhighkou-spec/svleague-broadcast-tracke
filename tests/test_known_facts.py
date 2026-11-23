@@ -664,3 +664,25 @@ def test_reconcile_removes_unverified_legacy_j_sports_channel_assignments():
     ]
     assert set(valid) <= keys
     assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "") in keys
+
+
+def test_reconcile_preserves_new_program_detail_for_previously_invalid_jsports_key():
+    detail = Broadcast(
+        "J SPORTS 1",
+        "2026-11-07",
+        "ウルフドッグス名古屋",
+        "ジェイテクトSTINGS愛知",
+        "https://www.jsports.co.jp/program_guide/13/11/verified-program/ | "
+        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/",
+        "21:00",
+    )
+    rows = reconcile([detail])
+    assert any(
+        r.station == "J SPORTS 1"
+        and r.broadcast_date == "2026-11-07"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "ジェイテクトSTINGS愛知"
+        and r.broadcast_time == "21:00"
+        and "/program_guide/13/" in (r.source or "")
+        for r in rows
+    )
