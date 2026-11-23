@@ -2802,10 +2802,16 @@ def known_facts():
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
         Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:25"),
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
-        Broadcast("BS無料放送（局名未公表）","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ","https://www.jsports.co.jp/press_release/page/365/",""),
+        Broadcast(
+            "BS無料放送（局名未公表）", "2026-10-31",
+            "フラーゴラッド鹿児島", "北海道イエロースターズ",
+            "https://www.jsports.co.jp/press_release/page/365/ | "
+            "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
+            "13:45",
+        ),
         # The SV.LEAGUE article marks these additional Game 1 cards as GOLDEN LIVE;
         # J SPORTS confirms that Game 1 of every GOLDEN LIVE card receives a free
-        # BS TV broadcast. Channel and BS broadcast time are not yet specified.
+        # BS TV broadcast. The exact channel is still not stated.
         Broadcast("BS無料放送（局名未公表）","2026-11-07","ウルフドッグス名古屋","ジェイテクトSTINGS愛知","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-11-21","PFUブルーキャッツ石川かほく","埼玉上尾メディックス","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
         Broadcast("BS無料放送（局名未公表）","2026-12-19","東京グレートベアーズ","サントリーサンバーズ大阪","https://www.jsports.co.jp/press_release/page/365/ | https://www.svleague.jp/news/detail/100609/?grade=sv",""),
