@@ -15,6 +15,7 @@ from scraper import (
     parse_jsports_time,
     parse_jsports_program_links,
     parse_jsports_program_detail,
+    parse_jcom_schedule_text,
 )
 
 
@@ -321,3 +322,105 @@ def test_jsports_live_airing_is_not_marked_replay_by_footer_legend():
     assert parse_jsports_program_detail(detail) == (
         "2026-11-21", "12:45", "2026-11-21", False
     )
+
+
+
+def test_jcom_parser_separates_actual_airing_date_time_from_match_date_and_start():
+    text = """
+    2026/11/24
+    2026/11/21
+    女子
+    PFUブルーキャッツ石川かほく埼玉上尾メディックス
+    レギュラーシーズン交流戦第6節GAME1
+    11/21(土)
+    13:05
+    録画 J SPORTS 1 HD
+    CS
+    J SPORTS 1 HD
+    録画
+    10:00〜13:00
+    2026/11/27
+    2026/11/27
+    男子
+    日本製鉄堺ブレイザーズ東京グレートベアーズ
+    レギュラーシーズン第6節GAME2
+    11/27(金)
+    18:35
+    生 GAORA SPORTS HD
+    CS
+    GAORA SPORTS HD
+    生中継
+    18:25〜21:30
+    """
+    assert parse_jcom_schedule_text(text) == [
+        (
+            "J SPORTS 1",
+            "2026-11-24",
+            ("PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+            "10:00",
+            "13:05",
+            True,
+        ),
+        (
+            "GAORA SPORTS",
+            "2026-11-27",
+            ("日本製鉄堺ブレイザーズ", "東京グレートベアーズ"),
+            "18:25",
+            "18:35",
+            False,
+        ),
+    ]
+
+
+def test_jcom_parser_excludes_on_demand_only_items():
+    text = """
+    2026/11/28
+    2026/11/28
+    男子
+    日本製鉄堺ブレイザーズ東京グレートベアーズ
+    18:35
+    生 J SPORTSオンデマンド
+    配信
+    18:25〜22:45
+    """
+    assert parse_jcom_schedule_text(text) == []
+
+
+def test_jcom_replay_airings_keep_distinct_same_day_times():
+    live = Broadcast(
+        "J SPORTS 2", "2027-06-30", "PFUブルーキャッツ石川かほく",
+        "埼玉上尾メディックス", "https://www2.myjcom.jp/schedule/", "12:00", "13:05"
+    )
+    replay = Broadcast(
+        "J SPORTS 2", "2027-06-30", "PFUブルーキャッツ石川かほく",
+        "埼玉上尾メディックス", "https://www2.myjcom.jp/schedule/ | replay", "20:00", "13:05"
+    )
+    rows = reconcile([live, replay])
+    matching = [
+        row for row in rows
+        if row.station == "J SPORTS 2"
+        and row.broadcast_date == "2027-06-30"
+        and row.home == "PFUブルーキャッツ石川かほく"
+        and row.away == "埼玉上尾メディックス"
+    ]
+    assert {row.broadcast_time for row in matching} == {"12:00", "20:00"}
+
+
+def test_gaora_official_schedule_outranks_jcom_cross_check():
+    jcom = Broadcast(
+        "GAORA SPORTS", "2027-06-30", "日本製鉄堺ブレイザーズ",
+        "東京グレートベアーズ", "https://www2.myjcom.jp/schedule/", "18:25", "18:35"
+    )
+    official = Broadcast(
+        "GAORA SPORTS", "2027-06-30", "日本製鉄堺ブレイザーズ",
+        "東京グレートベアーズ", "https://www.gaora.co.jp/volleyball/", "18:25", "18:35"
+    )
+    rows = reconcile([jcom, official])
+    row = next(
+        item for item in rows
+        if item.station == "GAORA SPORTS"
+        and item.broadcast_date == "2027-06-30"
+        and item.home == "日本製鉄堺ブレイザーズ"
+        and item.away == "東京グレートベアーズ"
+    )
+    assert row.source == official.source
