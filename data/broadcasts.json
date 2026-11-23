@@ -153,15 +153,6 @@
     "match_start_time": "15:35"
   },
   {
-    "station": "BS無料放送（局名未公表）",
-    "broadcast_date": "2026-10-31",
-    "home": "フラーゴラッド鹿児島",
-    "away": "北海道イエロースターズ",
-    "source": "https://www.jsports.co.jp/press_release/page/365/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
     "station": "フジテレビNEXT",
     "broadcast_date": "2026-10-31",
     "home": "大阪ブルテオン",
@@ -169,6 +160,24 @@
     "source": "https://volleyballmagazine.jp/702000/",
     "broadcast_time": "12:00",
     "match_start_time": "12:05"
+  },
+  {
+    "station": "BS無料放送（局名未公表）",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://www.jsports.co.jp/press_release/page/365/ | https://www.jsports.co.jp/volleyball/svleague/golden_live/",
+    "broadcast_time": "13:45",
+    "match_start_time": ""
+  },
+  {
+    "station": "J SPORTS 4",
+    "broadcast_date": "2026-10-31",
+    "home": "フラーゴラッド鹿児島",
+    "away": "北海道イエロースターズ",
+    "source": "https://volleyballmagazine.jp/702000/",
+    "broadcast_time": "13:45",
+    "match_start_time": "14:05"
   },
   {
     "station": "南日本放送",
@@ -187,15 +196,6 @@
     "source": "https://volleyballmagazine.jp/702000/",
     "broadcast_time": "14:00",
     "match_start_time": ""
-  },
-  {
-    "station": "J SPORTS 4",
-    "broadcast_date": "2026-10-31",
-    "home": "フラーゴラッド鹿児島",
-    "away": "北海道イエロースターズ",
-    "source": "https://www.svleague.jp/news/detail/100414/?grade=sv",
-    "broadcast_time": "",
-    "match_start_time": "14:05"
   },
   {
     "station": "J SPORTS 2",
@@ -324,30 +324,12 @@
     "match_start_time": "14:05"
   },
   {
-    "station": "テレビ静岡",
-    "broadcast_date": "2026-11-15",
-    "home": "サントリーサンバーズ大阪",
-    "away": "ジェイテクトSTINGS愛知",
-    "source": "https://volleyballking.jp/article/96916/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "テレビ静岡",
-    "broadcast_date": "2026-11-15",
-    "home": "北海道イエロースターズ",
-    "away": "広島サンダーズ",
-    "source": "https://volleyballking.jp/article/96916/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "テレビ静岡",
-    "broadcast_date": "2026-11-15",
-    "home": "大阪ブルテオン",
-    "away": "フラーゴラッド鹿児島",
-    "source": "https://volleyballking.jp/article/96916/",
-    "broadcast_time": "",
+    "station": "テレビ長崎",
+    "broadcast_date": "2026-11-14",
+    "home": "ウルフドッグス名古屋",
+    "away": "日本製鉄堺ブレイザーズ",
+    "source": "https://volleyballmagazine.jp/703335/",
+    "broadcast_time": "15:25",
     "match_start_time": ""
   },
   {
@@ -355,15 +337,6 @@
     "broadcast_date": "2026-11-15",
     "home": "東レアローズ静岡",
     "away": "ヴォレアス北海道",
-    "source": "https://volleyballking.jp/article/96916/",
-    "broadcast_time": "",
-    "match_start_time": ""
-  },
-  {
-    "station": "テレビ静岡",
-    "broadcast_date": "2026-11-15",
-    "home": "東京グレートベアーズ",
-    "away": "信州松本トライデンツ",
     "source": "https://volleyballking.jp/article/96916/",
     "broadcast_time": "",
     "match_start_time": ""
@@ -562,7 +535,7 @@
     "broadcast_date": "2026-11-26",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://volleyballmagazine.jp/703335/",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-11-26",
     "broadcast_time": "18:25",
     "match_start_time": "18:35"
   },
@@ -571,7 +544,16 @@
     "broadcast_date": "2026-11-27",
     "home": "日本製鉄堺ブレイザーズ",
     "away": "東京グレートベアーズ",
-    "source": "https://volleyballmagazine.jp/703335/",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-11-26 | replay",
+    "broadcast_time": "15:30",
+    "match_start_time": "18:35"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-27",
+    "home": "日本製鉄堺ブレイザーズ",
+    "away": "東京グレートベアーズ",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-11-27",
     "broadcast_time": "18:25",
     "match_start_time": "18:35"
   },
@@ -628,6 +610,15 @@
     "source": "https://volleyballmagazine.jp/703335/",
     "broadcast_time": "14:00",
     "match_start_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-11-28",
+    "home": "日本製鉄堺ブレイザーズ",
+    "away": "東京グレートベアーズ",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-11-27 | replay",
+    "broadcast_time": "17:30",
+    "match_start_time": "18:35"
   },
   {
     "station": "J SPORTS 4",
@@ -859,8 +850,8 @@
     "broadcast_date": "2026-12-19",
     "home": "東レアローズ滋賀",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-19",
+    "broadcast_time": "12:55",
     "match_start_time": "13:05"
   },
   {
@@ -877,8 +868,17 @@
     "broadcast_date": "2026-12-20",
     "home": "東レアローズ滋賀",
     "away": "PFUブルーキャッツ石川かほく",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-19 | replay",
+    "broadcast_time": "00:00",
+    "match_start_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-20",
+    "home": "東レアローズ滋賀",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-20",
+    "broadcast_time": "12:55",
     "match_start_time": "13:05"
   },
   {
@@ -889,6 +889,15 @@
     "source": "https://www.jsports.co.jp/program_guide/13/11/112588_2315681/ | https://www.jsports.co.jp/program_guide/channel/japanese/two/261219/ | replay",
     "broadcast_time": "21:00",
     "match_start_time": "14:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-20",
+    "home": "東レアローズ滋賀",
+    "away": "PFUブルーキャッツ石川かほく",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-20 | replay",
+    "broadcast_time": "21:30",
+    "match_start_time": "13:05"
   },
   {
     "station": "J SPORTS 3",
@@ -976,8 +985,8 @@
     "broadcast_date": "2026-12-26",
     "home": "東レアローズ滋賀",
     "away": "SAGA久光スプリングス",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-26",
+    "broadcast_time": "12:55",
     "match_start_time": "13:05"
   },
   {
@@ -1003,8 +1012,8 @@
     "broadcast_date": "2026-12-27",
     "home": "東レアローズ滋賀",
     "away": "SAGA久光スプリングス",
-    "source": "https://www.svleague.jp/news/detail/100609/?grade=sv",
-    "broadcast_time": "",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-27",
+    "broadcast_time": "12:55",
     "match_start_time": "13:05"
   },
   {
@@ -1023,6 +1032,24 @@
     "away": "アリーザ愛知",
     "source": "https://www.jsports.co.jp/program_guide/13/12/112084_4285569/ | https://www.jsports.co.jp/program_guide/channel/japanese/four/261226/ | replay",
     "broadcast_time": "18:15",
+    "match_start_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-28",
+    "home": "東レアローズ滋賀",
+    "away": "SAGA久光スプリングス",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-26 | replay",
+    "broadcast_time": "17:00",
+    "match_start_time": "13:05"
+  },
+  {
+    "station": "GAORA SPORTS",
+    "broadcast_date": "2026-12-28",
+    "home": "東レアローズ滋賀",
+    "away": "SAGA久光スプリングス",
+    "source": "https://www.gaora.co.jp/volleyball/4396990 | match-date=2026-12-27 | replay",
+    "broadcast_time": "20:00",
     "match_start_time": "13:05"
   },
   {
