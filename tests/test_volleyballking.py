@@ -341,3 +341,46 @@ def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_
 
     selected = _select_volleyballking_article_batch(metadata, state, limit=10, now=now)
     assert selected == metadata[:2]
+
+
+def test_volleyballking_relevant_but_unparsed_article_is_retried_without_marking_checked():
+    from datetime import datetime, timedelta
+
+    now = datetime(2026, 11, 24, 1, 0, 0)
+    url = "https://volleyballking.jp/article/99999/"
+    lastmod = "2026-11-23"
+    state = _load_volleyballking_crawl_state()
+
+    _record_volleyballking_article_attempt(
+        state, url, lastmod, retrieval_ok=True, parse_ok=False, now=now
+    )
+
+    assert url not in state["checked"]
+    assert datetime.fromisoformat(state["retry_after"][url]) == now + timedelta(hours=24)
+    assert _select_volleyballking_article_batch(
+        [(url, lastmod)], state, limit=10, now=now + timedelta(hours=1)
+    ) == []
+    assert _select_volleyballking_article_batch(
+        [(url, lastmod)], state, limit=10, now=now + timedelta(hours=25)
+    ) == [(url, lastmod)]
+
+    # A successful parse clears the retry and records the reviewed lastmod.
+    _record_volleyballking_article_attempt(
+        state, url, lastmod, retrieval_ok=True, parse_ok=True,
+        now=now + timedelta(hours=25)
+    )
+    assert state["checked"][url]["lastmod"] == lastmod
+    assert url not in state["retry_after"]
+
+
+def test_volleyballking_fetched_unrelated_article_can_be_marked_reviewed():
+    from datetime import datetime
+
+    now = datetime(2026, 11, 24, 1, 0, 0)
+    url = "https://volleyballking.jp/article/99998/"
+    state = _load_volleyballking_crawl_state()
+    _record_volleyballking_article_attempt(
+        state, url, "2026-11-23", retrieval_ok=True, parse_ok=True, now=now
+    )
+    assert url in state["checked"]
+    assert url not in state["retry_after"]
