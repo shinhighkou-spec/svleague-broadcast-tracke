@@ -310,6 +310,27 @@ def test_volleyballking_crawl_state_batches_unchecked_articles_and_persists_prog
     assert metadata[1] in retry_batch
 
 
+def test_volleyballking_due_retries_are_prioritized_over_newer_unchecked_articles():
+    from datetime import datetime
+
+    now = datetime(2026, 11, 24, 1, 0, 0)
+    retry_url = "https://volleyballking.jp/article/96916/"
+    metadata = [
+        ("https://volleyballking.jp/article/97400/", "2026-11-23"),
+        ("https://volleyballking.jp/article/97399/", "2026-11-22"),
+        (retry_url, "2026-11-13"),
+    ]
+    state = {
+        "version": 1,
+        "parser_version": scraper.VOLLEYBALLKING_PARSER_VERSION,
+        "checked": {},
+        "retry_after": {retry_url: "2026-11-23T16:00:00"},
+    }
+    assert _select_volleyballking_article_batch(metadata, state, limit=1, now=now) == [
+        metadata[2]
+    ]
+
+
 def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_path):
     from datetime import datetime, timedelta
 
