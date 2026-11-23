@@ -130,7 +130,8 @@ def test_public_schedule_labels_broadcast_start_time_not_match_start(monkeypatch
     assert "<div>放送開始</div>" in html
     assert "<div>試合開始</div>" not in html
     assert "試合開始時刻とは別管理" in html
-    assert '<div class="time">14:35</div>' in html
+    assert '<span class="air-time">14:35</span>' in html
+    assert '<span class="match-start-time">' not in html
 
 
 def test_volleyballking_child_sitemaps_without_lastmod_are_not_dropped():
