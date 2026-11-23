@@ -2168,11 +2168,12 @@ def _save_volleyballking_crawl_state(state, path=None):
 
 
 def _select_volleyballking_article_batch(article_metadata, state, limit=VOLLEYBALLKING_CRAWL_BATCH_SIZE, now=None):
-    """Select new/updated/due articles without repeatedly restarting at the newest URL."""
+    """Select due retries first, then new/updated/periodic-review articles."""
     now = now or datetime.now()
     checked = state.get("checked", {})
     retry_after = state.get("retry_after", {})
-    selected = []
+    due_retries = []
+    other_due = []
     for url, lastmod in article_metadata:
         retry_value = retry_after.get(url)
         retry_time = None
@@ -2202,12 +2203,12 @@ def _select_volleyballking_article_batch(article_metadata, state, limit=VOLLEYBA
             needs_review = bool(lastmod) and str(lastmod) != str(info)
 
         if retry_time and retry_time <= now:
-            needs_review = True
-        if needs_review:
-            selected.append((url, str(lastmod or "")))
-        if len(selected) >= max(0, int(limit)):
-            break
-    return selected
+            due_retries.append((url, str(lastmod or "")))
+        elif needs_review:
+            other_due.append((url, str(lastmod or "")))
+
+    batch_limit = max(0, int(limit))
+    return (due_retries + other_due)[:batch_limit]
 
 
 def _record_volleyballking_article_attempt(
