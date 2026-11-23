@@ -17,7 +17,7 @@ def flag_source_discovery_degraded(reason):
             print("SOURCE DISCOVERY STATUS FLAG ERROR:", e)
 
 from dataclasses import dataclass, asdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 from pypdf import PdfReader
@@ -38,6 +38,10 @@ GAORA = "https://www.gaora.co.jp/volleyball/4396990"
 GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
 VOLLEYBALLMAGAZINE_SCHEDULE_URL = "https://volleyballmagazine.jp/schedule/"
 VOLLEYBALLMAGAZINE_TV_CATEGORY_URL = "https://volleyballmagazine.jp/category/tv/"
+VOLLEYBALLKING_CRAWL_STATE_PATH = DATA / "volleyballking_crawl_state.json"
+VOLLEYBALLKING_CRAWL_BATCH_SIZE = 25
+VOLLEYBALLKING_REVISIT_DAYS = 30
+VOLLEYBALLKING_RETRY_DELAY_HOURS = 24
 
 @dataclass(frozen=True)
 class Broadcast:
@@ -262,7 +266,7 @@ def parse_jcom_schedule_text(text: str):
             continue
 
         channel_matches = list(re.finditer(
-            r"(?:録画|生中継|生)\s*(J SPORTS [1-4])\s*HD",
+            r"(?:録画|再放送|生中継|生)\s*(J SPORTS [1-4]|GAORA SPORTS)\s*HD",
             segment,
             re.I,
         ))
@@ -296,7 +300,8 @@ def parse_jcom_schedule_text(text: str):
             if key in seen:
                 continue
             seen.add(key)
-            results.append((station, broadcast_date, match, broadcast_time, match_start_time))
+            is_replay = bool(re.match(r"(?:録画|再放送)", channel_match.group(0)))
+            results.append((station, broadcast_date, match, broadcast_time, match_start_time, is_replay))
 
         i += 2
 
@@ -724,23 +729,54 @@ def scrape_jsports_official(page, rows):
     print("J SPORTS PROGRAM DETAILS ADDED:", added)
 
 def scrape_jcom(page, rows):
-    """Read J:COM's full schedule text; preserve airing dates and programme times."""
+    """Read J:COM's rendered schedule; preserve TV airing dates, times and replay labels."""
     url = "https://www2.myjcom.jp/special/tv/sports/volleyball/svleague/schedule.php"
     page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    page.wait_for_timeout(400)
+    try:
+        # The schedule is populated after the initial document response. Do not
+        # interpret an early, partially rendered body as an empty TV schedule.
+        page.wait_for_function(
+            r"""() => {
+                const text = document.body?.innerText || "";
+                return /20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}/.test(text)
+                    && /(?:録画|再放送|生中継|生)\s*(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD/i.test(text)
+                    && /\d{1,2}:\d{2}\s*[〜～~–—-]\s*\d{1,2}:\d{2}/.test(text);
+            }""",
+            timeout=15000,
+        )
+    except Exception as e:
+        print("J:COM SCHEDULE CONTENT WAIT WARNING:", e)
+
     body = page.locator("body").inner_text(timeout=20000)
     if not body.strip():
         raise RuntimeError("J:COM schedule page returned empty text")
 
     items = parse_jcom_schedule_text(body)
-    for station, broadcast_date, match, broadcast_time, match_start_time in items:
-        add(rows, station, broadcast_date, match, url, broadcast_time, match_start_time)
+    for station, broadcast_date, match, broadcast_time, match_start_time, is_replay in items:
+        source = url + (" | replay" if is_replay else "")
+        add(rows, station, broadcast_date, match, source, broadcast_time, match_start_time)
         print("J:COM ACCEPTED:", station, broadcast_date, broadcast_time,
-              "match start", match_start_time or "unknown", match[0], "vs", match[1])
+              "match start", match_start_time or "unknown",
+              "replay" if is_replay else "live/first airing",
+              match[0], "vs", match[1])
 
     print("J:COM FULL-PAGE AIRINGS PARSED:", len(items))
     if not items:
-        raise RuntimeError("J:COM page loaded but no complete dated J SPORTS TV programme slots were parsed")
+        date_count = len(re.findall(r"20\d{2}[./年-]\d{1,2}[./月-]\d{1,2}", body))
+        tv_label_count = len(re.findall(
+            r"(?:録画|再放送|生中継|生)\s*(?:J SPORTS [1-4]|GAORA SPORTS)\s*HD",
+            body,
+            re.I,
+        ))
+        time_range_count = len(re.findall(
+            r"\d{1,2}:\d{2}\s*[〜～~–—-]\s*\d{1,2}:\d{2}",
+            body,
+        ))
+        raise RuntimeError(
+            "J:COM page loaded but no complete dated TV programme slots were parsed "
+            f"(date_labels={date_count}, tv_labels={tv_label_count}, "
+            f"time_ranges={time_range_count}, body_chars={len(body)})"
+        )
 
 
 def scrape_gaora(page, rows):
@@ -1277,9 +1313,8 @@ def _discover_volleyballking_supplemental_articles(page):
     print("VOLLEYBALLKING FEED TITLES MATCHING BROADCAST TERMS:", title_matches)
     if len(child_sitemaps) > 5:
         print("VOLLEYBALLKING DISCOVERY CHILD SITEMAPS DEFERRED:", len(child_sitemaps) - 5)
-    if len(urls) > 100:
-        print("VOLLEYBALLKING DISCOVERY ARTICLE URLS DEFERRED:", len(urls) - 100)
-    return urls[:100]
+    print("VOLLEYBALLKING DISCOVERY ARTICLE URLS AVAILABLE:", len(urls))
+    return [(url, article_lastmod.get(url, "")) for url in urls]
 
 def _extract_volleyballking_feed_titles(document_url, content):
     """Retain RSS/Atom article titles as discovery metadata for prioritization only."""
@@ -1527,8 +1562,103 @@ def _fetch_volleyballking_http_evidence(page, url):
         return ""
 
 
+def _load_volleyballking_crawl_state(path=None):
+    """Load durable per-article review state; a corrupt state safely triggers a rescan."""
+    state_path = Path(path) if path else VOLLEYBALLKING_CRAWL_STATE_PATH
+    default = {"version": 1, "checked": {}, "retry_after": {}}
+    try:
+        raw = json.loads(state_path.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ValueError("state root is not an object")
+        checked = raw.get("checked", {})
+        retry_after = raw.get("retry_after", {})
+        if not isinstance(checked, dict) or not isinstance(retry_after, dict):
+            raise ValueError("checked/retry_after must be objects")
+        return {"version": 1, "checked": checked, "retry_after": retry_after}
+    except FileNotFoundError:
+        return default
+    except Exception as e:
+        print("VOLLEYBALLKING CRAWL STATE LOAD ERROR:", state_path, e)
+        return default
+
+
+def _save_volleyballking_crawl_state(state, path=None):
+    """Persist only review metadata, never article text or unverified broadcast facts."""
+    state_path = Path(path) if path else VOLLEYBALLKING_CRAWL_STATE_PATH
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 1,
+        "checked": state.get("checked", {}),
+        "retry_after": state.get("retry_after", {}),
+    }
+    state_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _select_volleyballking_article_batch(article_metadata, state, limit=VOLLEYBALLKING_CRAWL_BATCH_SIZE, now=None):
+    """Select new/updated/due articles without repeatedly restarting at the newest URL."""
+    now = now or datetime.now()
+    checked = state.get("checked", {})
+    retry_after = state.get("retry_after", {})
+    selected = []
+    for url, lastmod in article_metadata:
+        retry_value = retry_after.get(url)
+        retry_time = None
+        if retry_value:
+            try:
+                retry_time = datetime.fromisoformat(str(retry_value))
+            except ValueError:
+                retry_time = None
+        if retry_time and retry_time > now:
+            continue
+
+        info = checked.get(url)
+        needs_review = info is None
+        if isinstance(info, dict):
+            previous_lastmod = str(info.get("lastmod", "") or "")
+            checked_at = None
+            try:
+                checked_at = datetime.fromisoformat(str(info.get("checked_at", "")))
+            except ValueError:
+                pass
+            lastmod_changed = bool(lastmod) and str(lastmod) != previous_lastmod
+            revisit_due = checked_at is None or now - checked_at >= timedelta(days=VOLLEYBALLKING_REVISIT_DAYS)
+            needs_review = lastmod_changed or revisit_due
+        elif info is not None:
+            # Migrate a legacy string entry by comparing its lastmod and revisiting
+            # it once; new state files use the structured form above.
+            needs_review = bool(lastmod) and str(lastmod) != str(info)
+
+        if retry_time and retry_time <= now:
+            needs_review = True
+        if needs_review:
+            selected.append((url, str(lastmod or "")))
+        if len(selected) >= max(0, int(limit)):
+            break
+    return selected
+
+
+def _record_volleyballking_article_attempt(state, url, lastmod, retrieval_ok, now=None):
+    """Mark successfully fetched pages reviewed; defer transport failures for 24 hours."""
+    now = now or datetime.now()
+    state.setdefault("checked", {})
+    state.setdefault("retry_after", {})
+    if retrieval_ok:
+        state["checked"][url] = {
+            "lastmod": str(lastmod or ""),
+            "checked_at": now.isoformat(timespec="seconds"),
+        }
+        state["retry_after"].pop(url, None)
+    else:
+        state["retry_after"][url] = (
+            now + timedelta(hours=VOLLEYBALLKING_RETRY_DELAY_HOURS)
+        ).isoformat(timespec="seconds")
+
+
 def scrape_volleyballking(page, rows):
-    """Daily direct crawl of VolleyballKing's latest/SV article listings."""
+    """Discover, review and revisit VolleyballKing articles using durable lastmod state."""
     article_links = {}
     listing_successes = 0
     for url in VOLLEYBALLKING_LISTING_URLS:
@@ -1565,23 +1695,47 @@ def scrape_volleyballking(page, rows):
         except Exception as e:
             print("VOLLEYBALLKING LIST ERROR:", url, e)
 
-    supplemental_urls = _discover_volleyballking_supplemental_articles(page)
-    if listing_successes == 0 and not article_links and not supplemental_urls:
+    supplemental_metadata = _discover_volleyballking_supplemental_articles(page)
+    if listing_successes == 0 and not article_links and not supplemental_metadata:
         raise RuntimeError("Could not fetch any VolleyballKing listing, RSS feed or sitemap")
 
     accepted = 0
     needs_review = 0
     already_covered = 0
-    # RSS/Atom titles prioritize likely broadcast articles, but title metadata
-    # never confirms a broadcast. Every candidate is opened and parsed.
+    # Listing/JSON-LD candidates stay high priority. Sitemap candidates use a
+    # durable lastmod/check-time ledger so a large archive is processed in batches
+    # instead of restarting at the newest ten URLs on every scheduled run.
     listing_candidates = list(article_links.items())[:20]
     listing_urls = set(article_links)
-    supplemental_candidates = [(href, "") for href in supplemental_urls if href not in listing_urls][:10]
-    for href, title in listing_candidates + supplemental_candidates:
+    supplemental_metadata = [
+        (href, lastmod) for href, lastmod in supplemental_metadata
+        if href not in listing_urls
+    ]
+    state = _load_volleyballking_crawl_state()
+    supplemental_candidates = _select_volleyballking_article_batch(
+        supplemental_metadata, state, limit=VOLLEYBALLKING_CRAWL_BATCH_SIZE
+    )
+    candidates = (
+        [(href, title, None) for href, title in listing_candidates]
+        + [(href, "", lastmod) for href, lastmod in supplemental_candidates]
+    )
+    print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
+    print("VOLLEYBALLKING LISTING/JSON-LD CANDIDATES:", len(article_links))
+    print("VOLLEYBALLKING LISTING CANDIDATES PROCESSED:", len(listing_candidates))
+    print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES AVAILABLE:", len(supplemental_metadata))
+    print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES SELECTED:", len(supplemental_candidates))
+    print(
+        "VOLLEYBALLKING SUPPLEMENTAL CANDIDATES NOT SELECTED THIS RUN:",
+        max(0, len(supplemental_metadata) - len(supplemental_candidates)),
+    )
+
+    for href, title, lastmod in candidates:
+        retrieval_ok = False
         try:
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
             evidence = _page_evidence_text(page)
+            retrieval_ok = bool(evidence)
             article_text = title + " " + evidence
             items = _extract_volleyballking_broadcasts(article_text)
             if not items:
@@ -1591,12 +1745,12 @@ def scrape_volleyballking(page, rows):
                     if single_item:
                         items = [single_item]
             if not items:
-                # Some articles are discoverable in sitemaps but the rendered
-                # page can expose only a shell/partial body. Retry via direct
-                # HTTP and parse article text/JSON-LD; still require the same
-                # strict station/date/match parser before accepting any row.
+                # Some pages expose only a partial rendered body. Retry through
+                # direct HTTP and structured articleBody, still requiring the
+                # same strict station/date/match parser before accepting facts.
                 http_evidence = _fetch_volleyballking_http_evidence(page, href)
                 if http_evidence:
+                    retrieval_ok = True
                     items = _extract_volleyballking_broadcasts(http_evidence)
                     if not items:
                         article_stations = [st for st in VALID_STATIONS if st in http_evidence]
@@ -1606,9 +1760,12 @@ def scrape_volleyballking(page, rows):
                                 items = [single_item]
                     if items:
                         print("VOLLEYBALLKING HTTP FALLBACK PARSED:", href, "items", len(items))
+                elif not evidence:
+                    retrieval_ok = False
+
             if not items:
                 needs_review += 1
-                print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title)
+                print("VOLLEYBALLKING NEEDS REVIEW:", href, "|", title or "sitemap candidate")
                 continue
 
             for station, d, match, tm in items:
@@ -1632,15 +1789,25 @@ def scrape_volleyballking(page, rows):
                 accepted += 1
                 print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
         except Exception as e:
+            retrieval_ok = False
             print("VOLLEYBALLKING ARTICLE ERROR:", href, e)
-    print("VOLLEYBALLKING LISTINGS OK:", listing_successes)
-    print("VOLLEYBALLKING LISTING/JSON-LD CANDIDATES:", len(article_links))
-    print("VOLLEYBALLKING LISTING CANDIDATES PROCESSED:", len(listing_candidates))
-    print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES PROCESSED:", len(supplemental_candidates))
-    if len(article_links) > len(listing_candidates):
-        print("VOLLEYBALLKING LISTING CANDIDATES DEFERRED:", len(article_links) - len(listing_candidates))
-    if len(supplemental_urls) > len(supplemental_candidates):
-        print("VOLLEYBALLKING SUPPLEMENTAL CANDIDATES DEFERRED:", len(supplemental_urls) - len(supplemental_candidates))
+        finally:
+            if lastmod is not None:
+                _record_volleyballking_article_attempt(
+                    state, href, lastmod, retrieval_ok
+                )
+
+    try:
+        _save_volleyballking_crawl_state(state)
+        print(
+            "VOLLEYBALLKING CRAWL STATE:",
+            "checked", len(state.get("checked", {})),
+            "retry_after", len(state.get("retry_after", {})),
+        )
+    except Exception as e:
+        print("VOLLEYBALLKING CRAWL STATE SAVE ERROR:", e)
+        flag_source_discovery_degraded(f"VolleyballKing crawl state could not be saved: {e}")
+
     print("VOLLEYBALLKING ACCEPTED:", accepted)
     print("VOLLEYBALLKING CONFIRMED ALREADY-COVERED ROWS:", already_covered)
     print("VOLLEYBALLKING NEEDS REVIEW:", needs_review)
@@ -2488,6 +2655,8 @@ def reconcile(rows):
         # Prefer it over an archived/static timetable PDF when both identify the
         # same station/date/match; keep J SPORTS guide and official PDFs next.
         if "jsports.co.jp/program_guide/" in source:
+            return 8
+        if "gaora.co.jp" in source:
             return 8
         if "gtv.e-business.ne.jp/timetable" in source:
             return 8
