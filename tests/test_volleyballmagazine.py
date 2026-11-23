@@ -424,3 +424,47 @@ def test_gaora_official_schedule_outranks_jcom_cross_check():
         and item.away == "東京グレートベアーズ"
     )
     assert row.source == official.source
+
+
+
+def test_jcom_parser_aligns_after_a_leading_filter_date_and_channel_first_labels():
+    text = """
+    2026/11/24
+    2026/11/24
+    2026/11/21
+    女子
+    PFUブルーキャッツ石川かほく埼玉上尾メディックス
+    13:05
+    CS
+    J SPORTS 1 HD
+    録画
+    10:00〜13:00
+    2026/11/24
+    2026/11/22
+    女子
+    PFUブルーキャッツ石川かほく埼玉上尾メディックス
+    13:05
+    CS
+    J SPORTS 2 HD
+    録画
+    16:00〜19:00
+    """
+    items = parse_jcom_schedule_text(text)
+    assert items == [
+        (
+            "J SPORTS 1",
+            "2026-11-24",
+            ("PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+            "10:00",
+            "13:05",
+            True,
+        ),
+        (
+            "J SPORTS 2",
+            "2026-11-24",
+            ("PFUブルーキャッツ石川かほく", "埼玉上尾メディックス"),
+            "16:00",
+            "13:05",
+            True,
+        ),
+    ]
