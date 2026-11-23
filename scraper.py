@@ -2733,8 +2733,6 @@ KNOWN_VERIFIED_AIRTIME_SOURCES = {
         "https://www.jsports.co.jp/volleyball/svleague_men/",
     ("J SPORTS 2", "2026-10-25", "ウルフドッグス名古屋", "東京グレートベアーズ"):
         "https://www.jsports.co.jp/volleyball/svleague_men/",
-    ("J SPORTS 4", "2026-10-31", "フラーゴラッド鹿児島", "北海道イエロースターズ"):
-        "https://www.jsports.co.jp/volleyball/svleague/golden_live/",
 }
 
 
@@ -2804,7 +2802,6 @@ def known_facts():
         Broadcast("J SPORTS 1","2026-10-18","NECレッドロケッツ川崎","ヴィクトリーナ姫路",src,"15:15"),
         Broadcast("J SPORTS 2","2026-10-24","ウルフドッグス名古屋","東京グレートベアーズ",src,"16:25"),
         Broadcast("J SPORTS 2","2026-10-25","ウルフドッグス名古屋","東京グレートベアーズ",src,"15:25"),
-        Broadcast("J SPORTS 4","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ",src,"13:45"),
         Broadcast("BS無料放送（局名未公表）","2026-10-31","フラーゴラッド鹿児島","北海道イエロースターズ","https://www.jsports.co.jp/press_release/page/365/",""),
         # The SV.LEAGUE article marks these additional Game 1 cards as GOLDEN LIVE;
         # J SPORTS confirms that Game 1 of every GOLDEN LIVE card receives a free
@@ -2918,6 +2915,10 @@ def reconcile(rows):
             # broadcasts on J SPORTS 2, not J SPORTS 1.
             ("J SPORTS 1", "2026-11-01", "フラーゴラッド鹿児島",
              "北海道イエロースターズ", "12:45"),
+            ("J SPORTS 1", "2026-10-31", "フラーゴラッド鹿児島",
+             "北海道イエロースターズ", "13:45"),
+            ("J SPORTS 4", "2026-10-31", "フラーゴラッド鹿児島",
+             "北海道イエロースターズ", "13:45"),
             ("J SPORTS 1", "2026-11-07", "ウルフドッグス名古屋",
              "ジェイテクトSTINGS愛知", "21:00"),
             ("J SPORTS 1", "2026-11-08", "ウルフドッグス名古屋",
@@ -2926,6 +2927,18 @@ def reconcile(rows):
              "埼玉上尾メディックス", "12:45"),
             ("J SPORTS 1", "2026-11-22", "PFUブルーキャッツ石川かほく",
              "埼玉上尾メディックス", "20:45"),
+            ("J SPORTS 1", "2026-11-28", "ＫＵＲＯＢＥアクアフェアリーズ富山",
+             "Astemoリヴァーレ茨城", "13:55"),
+            ("J SPORTS 1", "2026-11-29", "ＫＵＲＯＢＥアクアフェアリーズ富山",
+             "Astemoリヴァーレ茨城", "19:00"),
+            ("J SPORTS 1", "2026-12-05", "広島サンダーズ",
+             "サントリーサンバーズ大阪", "13:55"),
+            ("J SPORTS 1", "2026-12-06", "広島サンダーズ",
+             "サントリーサンバーズ大阪", "20:30"),
+            ("J SPORTS 1", "2026-12-19", "東京グレートベアーズ",
+             "サントリーサンバーズ大阪", "20:00"),
+            ("J SPORTS 1", "2026-12-20", "東京グレートベアーズ",
+             "サントリーサンバーズ大阪", "21:00"),
         }
         invalid_key = (
             row.station, row.broadcast_date, row.home, row.away, row.broadcast_time or ""
