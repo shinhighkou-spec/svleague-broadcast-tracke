@@ -561,3 +561,60 @@ def test_site_shows_broadcast_and_match_start_times_as_separate_labels(tmp_path,
     assert "10:00" in html
     assert html.count("試合開始 13:05") == 1
     assert html.count("試合開始 14:05") == 1
+
+
+def test_svleague_match_detail_without_tv_or_recent_results_is_reviewed_as_no_tv():
+    html = """
+    <main>
+      <nav><a href="/broadcast/">放送・配信</a></nav>
+      <h2>WOMEN Regular Season第8節 / GAME1</h2>
+      <div>A愛知 HOME</div>
+      <div>2026.12.05 (土)</div>
+      <div>14:05</div>
+      <div>東レ滋賀 AWAY</div>
+      <h2>Official Partners オフィシャルパートナー</h2>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) == (
+        "2026-12-05",
+        ("アリーザ愛知", "東レアローズ滋賀"),
+        "14:05",
+        [],
+    )
+
+
+def test_svleague_match_detail_with_tv_section_but_no_recent_results_is_parsed():
+    html = """
+    <main>
+      <h2>WOMEN Regular Season第8節 / GAME1</h2>
+      <div>A愛知 HOME</div>
+      <div>2026.12.05 (土)</div>
+      <div>14:05</div>
+      <div>東レ滋賀 AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li>群馬テレビ</li></ul>
+      <h2>Official Partners オフィシャルパートナー</h2>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) == (
+        "2026-12-05",
+        ("アリーザ愛知", "東レアローズ滋賀"),
+        "14:05",
+        ["群馬テレビ"],
+    )
+
+
+def test_svleague_match_detail_does_not_promote_unknown_non_sv_teams():
+    html = """
+    <main>
+      <h2>WOMEN Regular Season第7節 / GAME1</h2>
+      <div>仙台 HOME</div>
+      <div>2026.11.28 (土)</div>
+      <div>14:05</div>
+      <div>フォレスト AWAY</div>
+      <h3>放送・配信</h3>
+      <ul><li>群馬テレビ</li></ul>
+      <h3>直近の試合結果</h3>
+    </main>
+    """
+    assert parse_svleague_match_detail_html(html) is None
