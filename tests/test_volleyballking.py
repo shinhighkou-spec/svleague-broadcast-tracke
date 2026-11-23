@@ -612,3 +612,22 @@ J SPORTSオンデマンド
     )
     assert row.broadcast_time == "14:25"
     assert row.match_start_time == "14:35"
+
+
+def test_volleyballking_unqualified_station_is_not_spread_across_both_games():
+    article = """2026.11.19 18:05
+◾︎SVリーグ女子第6節 試合日程・放送情報・配信情報
+群馬グリーンウイングス vs アリーザ愛知
+▼日時
+GAME1：11月21日（土）13時5分～
+GAME2：11月22日（日）13時5分～
+▼会場
+ヤマト市民体育館前橋
+▼放送
+群馬テレビ
+▼配信
+J SPORTSオンデマンド
+"""
+    # The article does not say whether the station covers GAME1, GAME2, or both.
+    # Do not infer two airings; the official station timetable is a separate source.
+    assert scraper._extract_volleyballking_schedule_blocks(article) == []
