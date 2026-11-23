@@ -147,6 +147,7 @@ def clean_station(s: str) -> str:
         "BS12 トゥエルビ": "BS12",
         "KTS鹿児島": "鹿児島テレビ",
         "KTS鹿児島テレビ": "鹿児島テレビ",
+        "KTNテレビ長崎": "テレビ長崎",
     }
     return aliases.get(s, s)
 
@@ -1154,7 +1155,7 @@ REGIONAL_STATIONS = {
     "広島": ["広島テレビ", "広島ホームテレビ", "中国放送", "テレビ新広島"],
     "鹿児島": ["鹿児島テレビ", "KTS鹿児島", "KTS鹿児島テレビ", "鹿児島読売テレビ", "南日本放送", "鹿児島放送"],
     "佐賀": ["サガテレビ", "NHK佐賀"],
-    "長崎": ["テレビ長崎"],
+    "長崎": ["テレビ長崎", "KTNテレビ長崎"],
 }
 BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
 VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
@@ -1697,7 +1698,7 @@ def _extract_volleyballking_schedule_blocks(text):
     Return None when the article has no structured schedule section, and [] when
     it has one but no row can be safely mapped. The latter must not fall back to
     article-wide station/date association.
-    Result tuples: (station, broadcast_date, (home, away), broadcast_time, match_start_time).
+    Result tuples: (station, match_date, (home, away), match_start_time).
     """
     raw_lines = [
         re.sub(r"[ \t]+", " ", line).strip()
@@ -1794,12 +1795,103 @@ def _extract_volleyballking_schedule_blocks(text):
             stations = _recognized_station_names(station_line.group(2))
             if len(stations) != 1:
                 continue
-            broadcast_date, match_start_time = game_dates[game]
-            item = (stations[0], broadcast_date, match, "", match_start_time)
+            match_date, match_start_time = game_dates[game]
+            item = (stations[0], match_date, match, match_start_time)
             if item not in seen:
                 seen.add(item)
                 found.append(item)
     return found
+
+
+def _apply_volleyballking_match_station_candidates(items, rows, existing_records, source):
+    """Attach a structured article's match-start time to an already-dated TV airing.
+
+    A VolleyballKing GAME date is a match date, not proof of the TV airing date.
+    Therefore this helper never creates a new broadcast row. It only enriches a
+    unique existing station/team airing while preserving that row's broadcast
+    date and broadcast-start time. Ambiguous or absent airings remain review items.
+    """
+    unique_records = {}
+    for record in existing_records:
+        key = (
+            record.station, record.broadcast_date, record.home,
+            record.away, record.broadcast_time,
+        )
+        current = unique_records.get(key)
+        if current is None or (
+            not current.match_start_time and record.match_start_time
+        ):
+            unique_records[key] = record
+
+    matched = 0
+    updated = 0
+    unresolved = []
+    for station, match_date, match, match_start_time in items:
+        candidates = [
+            record for record in unique_records.values()
+            if record.station == station
+            and record.home == match[0]
+            and record.away == match[1]
+        ]
+        exact = [
+            record for record in candidates
+            if record.broadcast_date == match_date
+            or (
+                record.match_start_time
+                and record.match_start_time == match_start_time
+            )
+        ]
+        if len(exact) == 1:
+            chosen = exact[0]
+        elif len(candidates) == 1:
+            chosen = candidates[0]
+        else:
+            reason = "no dated TV airing exists" if not candidates else "multiple airings are ambiguous"
+            unresolved.append((station, match_date, match, match_start_time, reason))
+            print(
+                "VOLLEYBALLKING MATCH/STATION NEEDS AIRING DATE:",
+                station, match_date, match[0], "vs", match[1], "|", reason,
+            )
+            continue
+
+        if chosen.match_start_time and chosen.match_start_time != match_start_time:
+            unresolved.append((
+                station, match_date, match, match_start_time,
+                f"existing match start {chosen.match_start_time} conflicts",
+            ))
+            print(
+                "VOLLEYBALLKING MATCH START CONFLICT:",
+                station, match_date, match[0], "vs", match[1],
+                "existing", chosen.match_start_time, "article", match_start_time,
+            )
+            continue
+
+        matched += 1
+        if not chosen.match_start_time and match_start_time:
+            rows.append(Broadcast(
+                chosen.station,
+                chosen.broadcast_date,
+                chosen.home,
+                chosen.away,
+                source,
+                chosen.broadcast_time,
+                match_start_time,
+            ))
+            updated += 1
+            print(
+                "VOLLEYBALLKING MATCH START ENRICHED WITHOUT CHANGING AIRTIME:",
+                station, "broadcast", chosen.broadcast_date, chosen.broadcast_time,
+                "match", match_date, match_start_time,
+                match[0], "vs", match[1],
+            )
+        else:
+            print(
+                "VOLLEYBALLKING MATCH/STATION CONFIRMED:",
+                station, "broadcast", chosen.broadcast_date, chosen.broadcast_time,
+                "match", match_date, match_start_time,
+                match[0], "vs", match[1],
+            )
+    return matched, updated, unresolved
 
 
 def _extract_volleyballking_broadcasts(text):
@@ -2225,6 +2317,37 @@ def scrape_volleyballking(page, rows):
                 elif not evidence:
                     retrieval_ok = False
 
+            if structured_mode:
+                if not items:
+                    needs_review += 1
+                    parse_ok = False
+                    print(
+                        "VOLLEYBALLKING STRUCTURED SCHEDULE NEEDS REVIEW:",
+                        href,
+                        "| no GAME-specific TV station/date mapping was confirmed",
+                    )
+                    continue
+                existing_records = list(rows) + load_previous()
+                matched, updated, unresolved = _apply_volleyballking_match_station_candidates(
+                    items, rows, existing_records, href
+                )
+                already_covered += matched
+                if unresolved:
+                    needs_review += 1
+                    parse_ok = False
+                    print(
+                        "VOLLEYBALLKING STRUCTURED SCHEDULE PARTIALLY UNRESOLVED:",
+                        href, "matched", matched, "updated", updated,
+                        "unresolved", len(unresolved),
+                    )
+                else:
+                    parse_ok = True
+                    print(
+                        "VOLLEYBALLKING STRUCTURED SCHEDULE VERIFIED:",
+                        href, "matched", matched, "match-start updates", updated,
+                    )
+                continue
+
             if not items:
                 needs_review += 1
                 review_text = title + " " + review_evidence
@@ -2245,30 +2368,24 @@ def scrape_volleyballking(page, rows):
                 continue
 
             parse_ok = True
-            for item in items:
-                if len(item) == 5:
-                    station, d, match, tm, match_start_time = item
-                else:
-                    station, d, match, tm = item
-                    match_start_time = ""
+            for station, d, match, tm in items:
                 identity = (station, d, match[0], match[1])
                 existing_records = list(rows) + load_previous() + known_facts()
                 exact_existing = any(
                     (r.station, r.broadcast_date, r.home, r.away) == identity
                     and (not tm or r.broadcast_time == tm)
-                    and (not match_start_time or r.match_start_time == match_start_time)
                     for r in existing_records
                 )
                 # A time-less secondary-source row must not duplicate a known
                 # official/broadcaster row or overwrite its broadcast time.
-                if exact_existing or (not tm and not match_start_time and any(
+                if exact_existing or (not tm and any(
                     (r.station, r.broadcast_date, r.home, r.away) == identity
                     for r in existing_records
                 )):
                     already_covered += 1
                     print("VOLLEYBALLKING CONFIRMS EXISTING ROW:", station, d, match[0], "vs", match[1], "|", href)
                     continue
-                add(rows, station, d, match, href, tm, match_start_time)
+                add(rows, station, d, match, href, tm)
                 accepted += 1
                 print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
         except Exception as e:
@@ -3739,15 +3856,15 @@ def main():
             print("J:COM ERROR:", e)
             flag_source_discovery_degraded(f"J:COM source failed: {e}")
         try:
-            scrape_volleyballking(page, rows)
-        except Exception as e:
-            print("VOLLEYBALLKING ERROR:", e)
-            flag_source_discovery_degraded(f"VolleyballKing crawl failed: {e}")
-        try:
             scrape_volleyballmagazine(page, rows)
         except Exception as e:
             print("VOLLEYBALLMAGAZINE ERROR:", e)
             flag_source_discovery_degraded(f"Volleyball Magazine source failed: {e}")
+        try:
+            scrape_volleyballking(page, rows)
+        except Exception as e:
+            print("VOLLEYBALLKING ERROR:", e)
+            flag_source_discovery_degraded(f"VolleyballKing crawl failed: {e}")
         try:
             scrape_gunma_tv(page, rows)
         except Exception as e:
