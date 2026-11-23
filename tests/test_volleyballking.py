@@ -310,6 +310,27 @@ def test_volleyballking_crawl_state_batches_unchecked_articles_and_persists_prog
     assert metadata[1] in retry_batch
 
 
+def test_volleyballking_due_retries_are_prioritized_over_newer_unchecked_articles():
+    from datetime import datetime
+
+    now = datetime(2026, 11, 24, 1, 0, 0)
+    retry_url = "https://volleyballking.jp/article/96916/"
+    metadata = [
+        ("https://volleyballking.jp/article/97400/", "2026-11-23"),
+        ("https://volleyballking.jp/article/97399/", "2026-11-22"),
+        (retry_url, "2026-11-13"),
+    ]
+    state = {
+        "version": 1,
+        "parser_version": scraper.VOLLEYBALLKING_PARSER_VERSION,
+        "checked": {},
+        "retry_after": {retry_url: "2026-11-23T16:00:00"},
+    }
+    assert _select_volleyballking_article_batch(metadata, state, limit=1, now=now) == [
+        metadata[2]
+    ]
+
+
 def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_path):
     from datetime import datetime, timedelta
 
@@ -341,6 +362,48 @@ def test_volleyballking_crawl_state_rechecks_changed_and_month_old_articles(tmp_
 
     selected = _select_volleyballking_article_batch(metadata, state, limit=10, now=now)
     assert selected == metadata[:2]
+
+
+def test_volleyballking_parser_version_change_rechecks_previously_checked_articles(tmp_path):
+    from datetime import datetime
+
+    state_path = tmp_path / "volleyballking_crawl_state.json"
+    state_path.write_text(json.dumps({
+        "version": 1,
+        "checked": {
+            "https://volleyballking.jp/article/96916/": {
+                "lastmod": "2026-11-13T19:34:45+09:00",
+                "checked_at": "2026-11-23T16:35:49",
+            },
+            "https://volleyballking.jp/article/97207/": {
+                "lastmod": "2026-11-19T15:32:33+09:00",
+                "checked_at": "2026-11-23T16:12:38",
+            },
+        },
+        "retry_after": {
+            "https://volleyballking.jp/article/96914/": "2026-11-23T16:35:46",
+        },
+    }, ensure_ascii=False), encoding="utf-8")
+
+    state = _load_volleyballking_crawl_state(state_path)
+    assert state["parser_version"] == scraper.VOLLEYBALLKING_PARSER_VERSION
+    assert state["checked"] == {}
+    assert state["retry_after"] == {
+        "https://volleyballking.jp/article/96914/": "2026-11-23T16:35:46"
+    }
+
+    metadata = [
+        ("https://volleyballking.jp/article/97207/", "2026-11-19T15:32:33+09:00"),
+        ("https://volleyballking.jp/article/96916/", "2026-11-13T19:34:45+09:00"),
+    ]
+    selected = _select_volleyballking_article_batch(
+        metadata, state, limit=2, now=datetime(2026, 11, 24, 1, 0, 0)
+    )
+    assert selected == metadata
+
+    _save_volleyballking_crawl_state(state, state_path)
+    saved = json.loads(state_path.read_text(encoding="utf-8"))
+    assert saved["parser_version"] == scraper.VOLLEYBALLKING_PARSER_VERSION
 
 
 def test_volleyballking_relevant_but_unparsed_article_is_retried_without_marking_checked():
@@ -449,18 +512,15 @@ J SPORTSオンデマンド
             "テレビ長崎",
             "2026-11-14",
             ("ウルフドッグス名古屋", "日本製鉄堺ブレイザーズ"),
-            "",
             "13:05",
         ),
         (
             "テレビ静岡",
             "2026-11-15",
             ("東レアローズ静岡", "ヴォレアス北海道"),
-            "",
             "14:05",
         ),
     ]
-
 
 def test_volleyballking_structured_schedule_does_not_use_article_publication_date():
     article = """2026.11.13 19:45
@@ -474,13 +534,16 @@ GAME1：なし
 GAME2：テレビ静岡
 """
     items = scraper._extract_volleyballking_schedule_blocks(article)
-    assert items is not None
-    assert [item[1] for item in items] == ["2026-11-15"]
-    assert all(item[1] != "2026-11-13" for item in items)
-    assert all(item[3] == "" and item[4] == "14:05" for item in items)
+    assert items == [
+        (
+            "テレビ静岡",
+            "2026-11-15",
+            ("東レアローズ静岡", "ヴォレアス北海道"),
+            "14:05",
+        )
+    ]
 
-
-def test_reconcile_removes_only_four_misassociated_tv_shizuoka_rows_from_article_96916():
+def test_reconcile_removes_five_misdated_tv_shizuoka_rows_from_article_96916():
     article_source = "https://volleyballking.jp/article/96916/"
     false_rows = [
         Broadcast("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪",
@@ -491,26 +554,31 @@ def test_reconcile_removes_only_four_misassociated_tv_shizuoka_rows_from_article
                   "信州松本トライデンツ", article_source),
         Broadcast("テレビ静岡", "2026-11-15", "大阪ブルテオン",
                   "フラーゴラッド鹿児島", article_source),
+        Broadcast("テレビ静岡", "2026-11-15", "東レアローズ静岡",
+                  "ヴォレアス北海道", article_source),
     ]
-    correct_row = Broadcast(
-        "テレビ静岡", "2026-11-15", "東レアローズ静岡",
-        "ヴォレアス北海道", article_source, "", "14:05"
+    correct_airing = Broadcast(
+        "テレビ静岡", "2026-11-16", "東レアローズ静岡",
+        "ヴォレアス北海道", "https://volleyballmagazine.jp/703335/",
+        "00:55", "14:05"
     )
     independently_sourced_row = Broadcast(
         "テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪",
         "ジェイテクトSTINGS愛知", "https://official.example/broadcast"
     )
-    rows = reconcile(false_rows + [correct_row, independently_sourced_row])
+    rows = reconcile(false_rows + [correct_airing, independently_sourced_row])
     keys = {(r.station, r.broadcast_date, r.home, r.away, r.source) for r in rows}
-    assert not any(key[4] == article_source and key[:4] in {
+    false_identities = {
         ("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪", "ジェイテクトSTINGS愛知"),
         ("テレビ静岡", "2026-11-15", "北海道イエロースターズ", "広島サンダーズ"),
         ("テレビ静岡", "2026-11-15", "東京グレートベアーズ", "信州松本トライデンツ"),
         ("テレビ静岡", "2026-11-15", "大阪ブルテオン", "フラーゴラッド鹿児島"),
-    } for key in keys)
+        ("テレビ静岡", "2026-11-15", "東レアローズ静岡", "ヴォレアス北海道"),
+    }
+    assert not any(key[4] == article_source and key[:4] in false_identities for key in keys)
     assert (
-        "テレビ静岡", "2026-11-15", "東レアローズ静岡",
-        "ヴォレアス北海道", article_source
+        "テレビ静岡", "2026-11-16", "東レアローズ静岡",
+        "ヴォレアス北海道", "https://volleyballmagazine.jp/703335/"
     ) in keys
     assert any(
         r.station == "テレビ静岡"
@@ -520,7 +588,6 @@ def test_reconcile_removes_only_four_misassociated_tv_shizuoka_rows_from_article
         and r.source == "https://official.example/broadcast"
         for r in rows
     )
-
 
 def test_volleyballking_http_fallback_preserves_structured_schedule_lines():
     article_body = (
@@ -550,7 +617,146 @@ def test_volleyballking_http_fallback_preserves_structured_schedule_lines():
             "テレビ長崎",
             "2026-11-14",
             ("ウルフドッグス名古屋", "日本製鉄堺ブレイザーズ"),
-            "",
             "13:05",
         )
     ]
+
+def test_volleyballking_kts_game2_maps_to_kagoshima_tv_and_preserves_airtime():
+    article = """2026.11.19 18:15
+◾︎SVリーグ男子第5節 試合日程・放送情報・配信情報
+フラーゴラッド鹿児島 vs ウルフドッグス名古屋
+▼日時
+GAME1：11月20日（金）18時35分～
+GAME2：11月21日（土）14時35分～
+▼会場
+Fアリーナいちき串木野
+▼放送
+GAME1：なし
+GAME2：KTS鹿児島
+▼配信
+J SPORTSオンデマンド
+"""
+    items = scraper._extract_volleyballking_schedule_blocks(article)
+    assert items == [
+        (
+            "鹿児島テレビ",
+            "2026-11-21",
+            ("フラーゴラッド鹿児島", "ウルフドッグス名古屋"),
+            "14:35",
+        )
+    ]
+    assert scraper.clean_station("KTS鹿児島テレビ") == "鹿児島テレビ"
+
+    existing_airtime = Broadcast(
+        "鹿児島テレビ", "2026-11-21", "フラーゴラッド鹿児島",
+        "ウルフドッグス名古屋", "https://volleyballmagazine.jp/703335/",
+        "14:25", "",
+    )
+    updates = []
+    matched, updated, unresolved = scraper._apply_volleyballking_match_station_candidates(
+        items, updates, [existing_airtime], "https://volleyballking.jp/article/97207/"
+    )
+    assert (matched, updated, unresolved) == (1, 1, [])
+    merged = scraper.reconcile([existing_airtime] + updates)
+    row = next(
+        r for r in merged
+        if r.station == "鹿児島テレビ"
+        and r.broadcast_date == "2026-11-21"
+        and r.home == "フラーゴラッド鹿児島"
+        and r.away == "ウルフドッグス名古屋"
+    )
+    assert row.broadcast_time == "14:25"
+    assert row.match_start_time == "14:35"
+
+def test_volleyballking_unqualified_station_is_not_spread_across_both_games():
+    article = """2026.11.19 18:05
+◾︎SVリーグ女子第6節 試合日程・放送情報・配信情報
+群馬グリーンウイングス vs アリーザ愛知
+▼日時
+GAME1：11月21日（土）13時5分～
+GAME2：11月22日（日）13時5分～
+▼会場
+ヤマト市民体育館前橋
+▼放送
+群馬テレビ
+▼配信
+J SPORTSオンデマンド
+"""
+    # The article does not say whether the station covers GAME1, GAME2, or both.
+    # Do not infer two airings; the official station timetable is a separate source.
+    assert scraper._extract_volleyballking_schedule_blocks(article) == []
+
+
+def test_volleyballking_match_date_enriches_delayed_airings_without_changing_air_dates():
+    candidates = [
+        ("テレビ長崎", "2026-11-14", ("ウルフドッグス名古屋", "日本製鉄堺ブレイザーズ"), "13:05"),
+        ("テレビ静岡", "2026-11-15", ("東レアローズ静岡", "ヴォレアス北海道"), "14:05"),
+    ]
+    existing = [
+        Broadcast(
+            "テレビ長崎", "2026-11-14", "ウルフドッグス名古屋",
+            "日本製鉄堺ブレイザーズ", "https://volleyballmagazine.jp/703335/",
+            "15:25", "",
+        ),
+        Broadcast(
+            "テレビ静岡", "2026-11-16", "東レアローズ静岡",
+            "ヴォレアス北海道", "https://volleyballmagazine.jp/703335/",
+            "00:55", "",
+        ),
+        # Legacy false row from article 96916 must not shadow the actual 11/16 TV airing.
+        Broadcast(
+            "テレビ静岡", "2026-11-15", "東レアローズ静岡",
+            "ヴォレアス北海道", "https://volleyballking.jp/article/96916/",
+            "", "",
+        ),
+    ]
+    updates = []
+    matched, updated, unresolved = scraper._apply_volleyballking_match_station_candidates(
+        candidates, updates, existing, "https://volleyballking.jp/article/96916/"
+    )
+    assert (matched, updated, unresolved) == (2, 2, [])
+    merged = scraper.reconcile(existing + updates)
+    nagasaki = next(
+        r for r in merged if r.station == "テレビ長崎"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "日本製鉄堺ブレイザーズ"
+    )
+    shizuoka = next(
+        r for r in merged if r.station == "テレビ静岡"
+        and r.home == "東レアローズ静岡"
+        and r.away == "ヴォレアス北海道"
+        and r.broadcast_date == "2026-11-16"
+    )
+    assert (nagasaki.broadcast_date, nagasaki.broadcast_time, nagasaki.match_start_time) == (
+        "2026-11-14", "15:25", "13:05"
+    )
+    assert (shizuoka.broadcast_date, shizuoka.broadcast_time, shizuoka.match_start_time) == (
+        "2026-11-16", "00:55", "14:05"
+    )
+    assert not any(
+        r.station == "テレビ静岡" and r.broadcast_date == "2026-11-15"
+        and r.home == "東レアローズ静岡" and r.away == "ヴォレアス北海道"
+        for r in merged
+    )
+
+
+def test_volleyballking_structured_candidate_without_dated_airing_is_not_added():
+    candidate = (
+        "テレビ静岡",
+        "2026-11-15",
+        ("東レアローズ静岡", "ヴォレアス北海道"),
+        "14:05",
+    )
+    updates = []
+    matched, updated, unresolved = scraper._apply_volleyballking_match_station_candidates(
+        [candidate], updates, [], "https://volleyballking.jp/article/96916/"
+    )
+    assert matched == 0
+    assert updated == 0
+    assert len(unresolved) == 1
+    assert updates == []
+
+
+def test_k_t_n_nagasaki_alias_is_canonicalized_for_monthly_tv_guide():
+    assert scraper.clean_station("KTNテレビ長崎") == "テレビ長崎"
+    assert scraper._recognized_station_names("KTNテレビ長崎") == ["テレビ長崎"]
