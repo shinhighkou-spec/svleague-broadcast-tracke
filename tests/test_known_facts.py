@@ -15,7 +15,7 @@ def test_known_official_facts_present():
     assert ('NHK BS','2026-10-23','デンソーエアリービーズ','SAGA久光スプリングス') in keys
     assert ('NHK BS','2026-11-01','大阪ブルテオン','ウルフドッグス名古屋') in keys
 
-def test_free_bs_tv_broadcasts_are_preserved_without_guessing_channel_or_time():
+def test_free_bs_tv_broadcasts_keep_unknown_channel_and_only_verified_time():
     from scraper import known_facts, VALID_STATIONS
     rows = known_facts()
     expected = {
@@ -28,7 +28,16 @@ def test_free_bs_tv_broadcasts_are_preserved_without_guessing_channel_or_time():
     actual = {(r.station, r.broadcast_date, r.home, r.away) for r in rows}
     assert expected <= actual
     assert "BS無料放送（局名未公表）" in VALID_STATIONS
-    assert all(r.broadcast_time == "" for r in rows if r.station == "BS無料放送（局名未公表）")
+    oct31 = next(
+        r for r in rows
+        if r.station == "BS無料放送（局名未公表）" and r.broadcast_date == "2026-10-31"
+    )
+    assert oct31.broadcast_time == "13:45"
+    assert all(
+        r.broadcast_time == ""
+        for r in rows
+        if r.station == "BS無料放送（局名未公表）" and r.broadcast_date != "2026-10-31"
+    )
 
 def test_known_bad_rows_rejected():
     rows=reconcile([
@@ -663,4 +672,26 @@ def test_reconcile_removes_unverified_legacy_j_sports_channel_assignments():
         ("J SPORTS 2", "2026-12-20", *match_dec19, "21:00"),
     ]
     assert set(valid) <= keys
-    assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "") in keys
+    assert ("BS無料放送（局名未公表）", "2026-10-31", *match_nov1, "13:45") in keys
+
+
+def test_reconcile_preserves_new_program_detail_for_previously_invalid_jsports_key():
+    detail = Broadcast(
+        "J SPORTS 1",
+        "2026-11-07",
+        "ウルフドッグス名古屋",
+        "ジェイテクトSTINGS愛知",
+        "https://www.jsports.co.jp/program_guide/13/11/verified-program/ | "
+        "https://www.jsports.co.jp/program_guide/channel/japanese/one/261107/",
+        "21:00",
+    )
+    rows = reconcile([detail])
+    assert any(
+        r.station == "J SPORTS 1"
+        and r.broadcast_date == "2026-11-07"
+        and r.home == "ウルフドッグス名古屋"
+        and r.away == "ジェイテクトSTINGS愛知"
+        and r.broadcast_time == "21:00"
+        and "/program_guide/13/" in (r.source or "")
+        for r in rows
+    )
