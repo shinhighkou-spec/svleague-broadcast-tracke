@@ -520,3 +520,37 @@ def test_reconcile_removes_only_four_misassociated_tv_shizuoka_rows_from_article
         and r.source == "https://official.example/broadcast"
         for r in rows
     )
+
+
+def test_volleyballking_http_fallback_preserves_structured_schedule_lines():
+    article_body = (
+        "試合日程・放送情報 ウルフドッグス名古屋 vs 日本製鉄堺ブレイザーズ "
+        "GAME1：11月14日（土）13時5分～ GAME2：11月15日（日）13時5分～ "
+        "GAME1：テレビ長崎 GAME2：なし"
+    )
+    html = f"""<html><head>
+      <script type="application/ld+json">{json.dumps({
+          "headline": "SVリーグ男子 第4節",
+          "articleBody": article_body,
+      }, ensure_ascii=False)}</script>
+    </head><body><article>
+      <h2>SVリーグ男子第4節 試合日程・放送情報・配信情報</h2>
+      <h3>ウルフドッグス名古屋 vs 日本製鉄堺ブレイザーズ</h3>
+      <p>▼日時</p>
+      <p>GAME1：11月14日（土）13時5分～</p>
+      <p>GAME2：11月15日（日）13時5分～</p>
+      <p>▼放送</p>
+      <p>GAME1：テレビ長崎</p>
+      <p>GAME2：なし</p>
+    </article></body></html>"""
+    evidence = scraper._volleyballking_html_evidence(html)
+    items = scraper._extract_volleyballking_schedule_blocks(evidence)
+    assert items == [
+        (
+            "テレビ長崎",
+            "2026-11-14",
+            ("ウルフドッグス名古屋", "日本製鉄堺ブレイザーズ"),
+            "",
+            "13:05",
+        )
+    ]
