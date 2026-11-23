@@ -1152,6 +1152,7 @@ REGIONAL_STATIONS = {
     "広島": ["広島テレビ", "広島ホームテレビ", "中国放送", "テレビ新広島"],
     "鹿児島": ["鹿児島テレビ", "鹿児島読売テレビ", "南日本放送", "鹿児島放送"],
     "佐賀": ["サガテレビ", "NHK佐賀"],
+    "長崎": ["テレビ長崎"],
 }
 BROADCAST_WORDS = ("テレビ", "TV", "放送", "中継", "生中継", "録画", "地上波", "BS", "CS")
 VALID_STATIONS |= {station for stations in REGIONAL_STATIONS.values() for station in stations}
@@ -1314,7 +1315,7 @@ def _extract_search_broadcast(text, require_time=False):
     return station, d, match, tm
 
 
-def _page_evidence_text(page):
+def _page_evidence_text(page, preserve_lines=False):
     """Collect visible text plus useful metadata from the opened source page."""
     parts = []
     try:
@@ -1347,7 +1348,13 @@ def _page_evidence_text(page):
                     parts.append(content)
         except Exception:
             pass
+    if preserve_lines:
+        return "\n".join(
+            re.sub(r"[ \t]+", " ", part).strip()
+            for part in parts if part and part.strip()
+        )
     return re.sub(r"\s+", " ", " ".join(parts)).strip()
+
 
 def _verify_search_result(page, title, href, snippet, require_time=True):
     """Open a search result and require the source page itself to confirm the broadcast.
@@ -1682,6 +1689,117 @@ def _prioritize_volleyballking_article_urls(article_lastmod, article_titles):
     return relevant + other
 
 
+def _extract_volleyballking_schedule_blocks(text):
+    """Parse per-match GAME1/GAME2 date and station rows from a structured article schedule.
+
+    Return None when the article has no structured schedule section, and [] when
+    it has one but no row can be safely mapped. The latter must not fall back to
+    article-wide station/date association.
+    Result tuples: (station, broadcast_date, (home, away), broadcast_time, match_start_time).
+    """
+    raw_lines = [
+        re.sub(r"[ \t]+", " ", line).strip()
+        for line in str(text or "").splitlines()
+    ]
+    lines = [line for line in raw_lines if line]
+    section_start = next(
+        (
+            index for index, line in enumerate(lines)
+            if "試合日程" in line and "放送情報" in line
+        ),
+        None,
+    )
+    if section_start is None:
+        return None
+
+    schedule_lines = lines[section_start + 1:]
+    heading_indices = []
+    for index, line in enumerate(schedule_lines):
+        if len(line) > 120 or not re.search(r"(?:vs\.?|VS\.?|×|対)", line, re.I):
+            continue
+        if parse_match(line):
+            heading_indices.append(index)
+    if not heading_indices:
+        return []
+
+    found = []
+    seen = set()
+    for position, start in enumerate(heading_indices):
+        end = heading_indices[position + 1] if position + 1 < len(heading_indices) else len(schedule_lines)
+        block = schedule_lines[start:end]
+        match = parse_match(block[0])
+        if not match:
+            continue
+
+        date_section_start = next(
+            (i for i, line in enumerate(block) if line.startswith("▼日時")),
+            None,
+        )
+        broadcast_section_start = next(
+            (i for i, line in enumerate(block) if line.startswith("▼放送")),
+            None,
+        )
+        if date_section_start is None or broadcast_section_start is None:
+            continue
+
+        def section_end(index):
+            for offset in range(index + 1, len(block)):
+                if block[offset].startswith("▼"):
+                    return offset
+            return len(block)
+
+        date_lines = block[date_section_start + 1:section_end(date_section_start)]
+        broadcast_lines = block[
+            broadcast_section_start + 1:section_end(broadcast_section_start)
+        ]
+
+        game_dates = {}
+        for line in date_lines:
+            game_match = re.search(
+                r"GAME\s*([12])\s*[:：]\s*(\d{1,2})月(\d{1,2})日"
+                r"[^0-9]{0,20}(\d{1,2})時(\d{1,2})分",
+                line,
+                re.I,
+            )
+            if game_match:
+                game, month, day, hour, minute = map(int, game_match.groups())
+            else:
+                game_match = re.search(
+                    r"GAME\s*([12])\s*[:：]\s*(\d{1,2})月(\d{1,2})日"
+                    r"[^0-9]{0,20}(\d{1,2}):(\d{2})",
+                    line,
+                    re.I,
+                )
+                if not game_match:
+                    continue
+                game, month, day, hour, minute = map(int, game_match.groups())
+            year = 2026 if month >= 9 else 2027
+            try:
+                game_date = date(year, month, day).isoformat()
+            except ValueError:
+                continue
+            if not valid_season_date(game_date) or hour > 23 or minute > 59:
+                continue
+            game_dates[game] = (game_date, f"{hour:02d}:{minute:02d}")
+
+        for line in broadcast_lines:
+            station_line = re.match(r"GAME\s*([12])\s*[:：]\s*(.*)", line, re.I)
+            if not station_line:
+                continue
+            game = int(station_line.group(1))
+            if game not in game_dates:
+                continue
+            stations = _recognized_station_names(station_line.group(2))
+            if len(stations) != 1:
+                continue
+            broadcast_date, match_start_time = game_dates[game]
+            item = (stations[0], broadcast_date, match, "", match_start_time)
+            if item not in seen:
+                seen.add(item)
+                found.append(item)
+    return found
+
+
 def _extract_volleyballking_broadcasts(text):
     """Extract multiple explicit station/date/match pairs from an opened article.
 
@@ -1850,10 +1968,13 @@ def _volleyballking_html_evidence(html):
     )
     for node in container.select("script, style, noscript, svg, nav, footer, aside"):
         node.decompose()
-    body_text = container.get_text(" ", strip=True)
+    body_text = container.get_text("\n", strip=True)
     if body_text:
         parts.append(body_text)
-    return re.sub(r"\s+", " ", " ".join(parts)).strip()
+    return "\n".join(
+        re.sub(r"[ \t]+", " ", part).strip()
+        for part in parts if part and part.strip()
+    )
 
 
 def _fetch_volleyballking_http_evidence(page, url):
@@ -2060,12 +2181,18 @@ def scrape_volleyballking(page, rows):
         try:
             page.goto(href, wait_until="domcontentloaded", timeout=45000)
             page.wait_for_timeout(350)
-            evidence = _page_evidence_text(page)
+            evidence = _page_evidence_text(page, preserve_lines=True)
             retrieval_ok = bool(evidence)
             review_evidence = evidence
-            article_text = title + " " + evidence
-            items = _extract_volleyballking_broadcasts(article_text)
-            if not items:
+            article_text = title + "\n" + evidence
+            structured_items = _extract_volleyballking_schedule_blocks(article_text)
+            structured_mode = structured_items is not None
+            items = (
+                structured_items
+                if structured_mode
+                else _extract_volleyballking_broadcasts(article_text)
+            )
+            if not items and not structured_mode:
                 article_stations = [st for st in VALID_STATIONS if st in article_text]
                 if len(article_stations) == 1:
                     single_item = _extract_volleyballking_broadcast(article_text)
@@ -2079,8 +2206,13 @@ def scrape_volleyballking(page, rows):
                 if http_evidence:
                     retrieval_ok = True
                     review_evidence = http_evidence
-                    items = _extract_volleyballking_broadcasts(http_evidence)
-                    if not items:
+                    http_structured_items = _extract_volleyballking_schedule_blocks(http_evidence)
+                    if http_structured_items is not None:
+                        structured_mode = True
+                        items = http_structured_items
+                    elif not structured_mode:
+                        items = _extract_volleyballking_broadcasts(http_evidence)
+                    if not items and not structured_mode:
                         article_stations = [st for st in VALID_STATIONS if st in http_evidence]
                         if len(article_stations) == 1:
                             single_item = _extract_volleyballking_broadcast(http_evidence)
@@ -2111,24 +2243,30 @@ def scrape_volleyballking(page, rows):
                 continue
 
             parse_ok = True
-            for station, d, match, tm in items:
+            for item in items:
+                if len(item) == 5:
+                    station, d, match, tm, match_start_time = item
+                else:
+                    station, d, match, tm = item
+                    match_start_time = ""
                 identity = (station, d, match[0], match[1])
                 existing_records = list(rows) + load_previous() + known_facts()
                 exact_existing = any(
                     (r.station, r.broadcast_date, r.home, r.away) == identity
                     and (not tm or r.broadcast_time == tm)
+                    and (not match_start_time or r.match_start_time == match_start_time)
                     for r in existing_records
                 )
                 # A time-less secondary-source row must not duplicate a known
                 # official/broadcaster row or overwrite its broadcast time.
-                if exact_existing or (not tm and any(
+                if exact_existing or (not tm and not match_start_time and any(
                     (r.station, r.broadcast_date, r.home, r.away) == identity
                     for r in existing_records
                 )):
                     already_covered += 1
                     print("VOLLEYBALLKING CONFIRMS EXISTING ROW:", station, d, match[0], "vs", match[1], "|", href)
                     continue
-                add(rows, station, d, match, href, tm)
+                add(rows, station, d, match, href, tm, match_start_time)
                 accepted += 1
                 print("VOLLEYBALLKING ACCEPTED:", station, d, tm, match[0], "vs", match[1], "|", href)
         except Exception as e:
@@ -2986,6 +3124,12 @@ def reconcile(rows):
         ("GAORA SPORTS","2026-10-31","東レアローズ滋賀","デンソーエアリービーズ"),
         ("フジテレビNEXT","2026-10-30","東レアローズ滋賀","デンソーエアリービーズ"),
     }
+    invalid_volleyballking_article_96916 = {
+        ("テレビ静岡", "2026-11-15", "サントリーサンバーズ大阪", "ジェイテクトSTINGS愛知"),
+        ("テレビ静岡", "2026-11-15", "北海道イエロースターズ", "広島サンダーズ"),
+        ("テレビ静岡", "2026-11-15", "東京グレートベアーズ", "信州松本トライデンツ"),
+        ("テレビ静岡", "2026-11-15", "大阪ブルテオン", "フラーゴラッド鹿児島"),
+    }
     out = {}
 
     def identity(row):
@@ -3030,6 +3174,13 @@ def reconcile(rows):
                   raw_row.home, "vs", raw_row.away)
             return
         row = normalize_time_semantics(raw_row)
+        volleyballking_key = (row.station, row.broadcast_date, row.home, row.away)
+        if (
+            volleyballking_key in invalid_volleyballking_article_96916
+            and "volleyballking.jp/article/96916/" in (row.source or "").casefold()
+        ):
+            print("MISASSOCIATED VOLLEYBALLKING ARTICLE ROW REMOVED:", volleyballking_key)
+            return
         invalid_jsports_airings = {
             # Legacy weekly-grid rows did not reliably preserve day/channel
             # columns. Remove only exact keys checked against current official
