@@ -39,6 +39,7 @@ GAORA_WEEKLY = "https://www.gaora.co.jp/program/{ymd}"
 VOLLEYBALLMAGAZINE_SCHEDULE_URL = "https://volleyballmagazine.jp/schedule/"
 VOLLEYBALLMAGAZINE_TV_CATEGORY_URL = "https://volleyballmagazine.jp/category/tv/"
 VOLLEYBALLKING_CRAWL_STATE_PATH = DATA / "volleyballking_crawl_state.json"
+VOLLEYBALLKING_PARSER_VERSION = 2
 VOLLEYBALLKING_CRAWL_BATCH_SIZE = 25
 VOLLEYBALLKING_REVISIT_DAYS = 30
 VOLLEYBALLKING_RETRY_DELAY_HOURS = 24
@@ -2109,9 +2110,14 @@ def _fetch_volleyballking_http_evidence(page, url):
 
 
 def _load_volleyballking_crawl_state(path=None):
-    """Load durable per-article review state; a corrupt state safely triggers a rescan."""
+    """Load review state and re-review prior articles once when parser logic changes."""
     state_path = Path(path) if path else VOLLEYBALLKING_CRAWL_STATE_PATH
-    default = {"version": 1, "checked": {}, "retry_after": {}}
+    default = {
+        "version": 1,
+        "parser_version": VOLLEYBALLKING_PARSER_VERSION,
+        "checked": {},
+        "retry_after": {},
+    }
     try:
         raw = json.loads(state_path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
@@ -2120,7 +2126,24 @@ def _load_volleyballking_crawl_state(path=None):
         retry_after = raw.get("retry_after", {})
         if not isinstance(checked, dict) or not isinstance(retry_after, dict):
             raise ValueError("checked/retry_after must be objects")
-        return {"version": 1, "checked": checked, "retry_after": retry_after}
+        try:
+            parser_version = int(raw.get("parser_version", 0))
+        except (TypeError, ValueError):
+            parser_version = 0
+        if parser_version < VOLLEYBALLKING_PARSER_VERSION:
+            print(
+                "VOLLEYBALLKING PARSER VERSION CHANGED:",
+                parser_version, "->", VOLLEYBALLKING_PARSER_VERSION,
+                "| scheduling", len(checked), "previously checked articles for re-review",
+            )
+            checked = {}
+            parser_version = VOLLEYBALLKING_PARSER_VERSION
+        return {
+            "version": 1,
+            "parser_version": parser_version,
+            "checked": checked,
+            "retry_after": retry_after,
+        }
     except FileNotFoundError:
         return default
     except Exception as e:
@@ -2134,6 +2157,7 @@ def _save_volleyballking_crawl_state(state, path=None):
     state_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "version": 1,
+        "parser_version": int(state.get("parser_version", VOLLEYBALLKING_PARSER_VERSION)),
         "checked": state.get("checked", {}),
         "retry_after": state.get("retry_after", {}),
     }
