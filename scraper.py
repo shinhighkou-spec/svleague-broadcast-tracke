@@ -989,9 +989,9 @@ def parse_gaora_program_schedule_row(text: str):
     slots in the same programme row are replays. 24:00-27:00 style starts
     are normalized to the following calendar day.
     """
-    compact = re.sub(r"\\s+", " ", str(text or "")).strip()
+    compact = re.sub(r"\s+", " ", str(text or "")).strip()
     match = parse_match(compact)
-    match_date_match = re.search(r"[（(](\\d{1,2})\\.(\\d{1,2})[^）)]*[）)]", compact)
+    match_date_match = re.search(r"[（(](\d{1,2})\.(\d{1,2})[^）)]*[）)]", compact)
     if not match or not match_date_match:
         return []
 
@@ -1005,11 +1005,11 @@ def parse_gaora_program_schedule_row(text: str):
         return []
 
     slot_pattern = re.compile(
-        r"(?<!\\d)(?P<month>\\d{1,2})月(?P<day>\\d{1,2})日"
-        r"(?:[（(][^）)]*[）)])?\\s*"
-        r"(?P<start_hour>\\d{1,2}):(?P<start_minute>\\d{2})"
-        r"\\s*[～〜~–—-]\\s*"
-        r"(?P<end_hour>\\d{1,2}):(?P<end_minute>\\d{2})(?!\\d)"
+        r"(?<!\d)(?P<month>\d{1,2})月(?P<day>\d{1,2})日"
+        r"(?:[（(][^）)]*[）)])?\s*"
+        r"(?P<start_hour>\d{1,2}):(?P<start_minute>\d{2})"
+        r"\s*[～〜~–—-]\s*"
+        r"(?P<end_hour>\d{1,2}):(?P<end_minute>\d{2})(?!\d)"
     )
     results = []
     for index, slot in enumerate(slot_pattern.finditer(compact)):
